@@ -36,7 +36,7 @@ def v_p(epsilon, k, omega, mu = 1):
     
     # normalise polarisation vector
     p = np.array([p_1,p_2,p_3])
-    p = p / np.dot(p,p)      
+    p = p / np.dot(p,p)**0.5      
     return p
     
 def v_q(p, k, omega, mu = 1):

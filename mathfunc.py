@@ -30,7 +30,7 @@ def construct_epsilon(epsilon, pitch, layer_t, thickness):
     angles = rot_angles(pitch, layer_t, thickness)
     return np.array([rot_z(i).dot(epsilon.dot(rot_z(-i))) for i in angles])
     
-def calc_c(e, a, b , omega, u = 1):
+def calc_c(e, a, b , omega, u = 1): # Check units
     """
     calculate the z components of 4 partial waves in medium
     

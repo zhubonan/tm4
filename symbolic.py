@@ -18,7 +18,7 @@ print(p.all_coeffs())
 
 """
 results:
-c**4 term: b**2
+c**4y term: b**2
 c**3 term: b*x23 + b*x32
 c**2 term: a**2*b**2 + a**2*x33 + a*b*x12 + a*b*x21 - b**2*x11 + b**2*x22 + b**2*x33 - x22*x33 + x23*x32
 c**1 term: a**3*x13 + a**3*x31 + a**2*b*x23 + a**2*b*x32 + 2*a*b**2*x13 + 2*a*b**2*x31 + a*x12*x23 - a*x13*x22 + a*x21*x32 - a*x22*x31 + b**3*x23 + b**3*x32 - b*x11*x23 - b*x11*x32 + b*x12*x31 + b*x13*x21

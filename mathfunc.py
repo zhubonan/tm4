@@ -7,7 +7,6 @@ Some useful math functions
 
 import numpy as np
 import math as m
-import scipy as sp
 
 def rot_z(theta):
     """

@@ -8,28 +8,35 @@ Some useful math functions
 import numpy as np
 import math as m
 
-def rot_z(theta):
-    """
-    Return rotation matrix that rotates with repect to z axis with theta degress
-    """
-    rot = np.array([[m.cos(theta), -m.sin(theta), 0],[m.sin(theta), m.cos(theta), 0]
-                    ,[0, 0, 1]])
-    return rot
-
-
-def rot_angles(pitch, layer_t, thickness):
-    """
-    get a array containing the anlges base on the pitch and thickness given
-    """
-    # get the number of layers 
-    n_l = m.modf(thickness/layer_t)
-    return np.linspace(0,2*np.pi*thickness/pitch,n_l[1])
     
-def construct_epsilon(epsilon, pitch, layer_t, thickness):
+def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
+    """
+    construct the dielectric matrices of all layers
+    return a N*3*3 array where N is the number of layers
+    """
+    
+    def rot_z(theta):
+        """
+        Return rotation matrix that rotates with repect to z axis with theta degress
+        """
+        rot = np.array([[m.cos(theta), -m.sin(theta), 0],[m.sin(theta), m.cos(theta), 0]
+                        ,[0, 0, 1]])
+        return rot
+
+
+    def rot_angles(pitch, layer_t, thickness):
+        """
+        get a array containing the anlges base on the pitch and thickness given
+        """
+        # get the number of layers 
+        n_l = m.modf(thickness/layer_t)
+        return np.linspace(0,2*np.pi*thickness/pitch,n_l[1])
+        
+        
     angles = rot_angles(pitch, layer_t, thickness)
-    return np.array([rot_z(i).dot(epsilon.dot(rot_z(-i))) for i in angles])
+    return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
     
-def calc_c(e, a, b , omega, u = 1):
+def calc_c(e, a, b , omega, u = 1): # Check units
     """
     calculate the z components of 4 partial waves in medium
     

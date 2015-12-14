@@ -8,7 +8,6 @@ Some useful math functions
 import numpy as np
 import math as m
 
-    
 def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     """
     construct the dielectric matrices of all layers
@@ -36,7 +35,7 @@ def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     angles = rot_angles(pitch, layer_t, thickness)
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
     
-def calc_c(e, a, b , omega, u = 1): # Check units
+def calc_c(e, a, b , omega, u = 1.25e-6): # Check units
     """
     calculate the z components of 4 partial waves in medium
     
@@ -69,19 +68,74 @@ def calc_c(e, a, b , omega, u = 1): # Check units
     + x11*x22*x33 - x11*x23*x32 - x12*x21*x33 + x12*x23*x31 + x13*x21*x32 - x13*x22*x31
     # calculate the roots of the quartic equation
     c = np.roots([coef4, coef3, coef2, coef1, coef0])
+    if len(c) == 2:
+        return np.append(c,c)
     return c
 
-def calc_p(e, a, b, c, omega, u = 1):
+def calc_k(e , a, b, omega, u = 1.25e-6):
+    
+    """
+    A wrapper to calcualte k vector 
+    """
+    c = calc_c(e, a , b, omega, u)
+    return np.array([[a, b, c[0]],[a, b , c[1]],[a,b,c[2]],[a,b,c[3]]])
+    
+def calc_p(e, k,  omega, u = 1.25e-6):
     """
     Calculate the polarisation vector based on the calculated wavevector and frequency
     equation(9.7-5)
+    
+    e: dielectric tensor
+    
+    k: 4x3 array of 4 k vectors
     """
     x = e* u * omega**2
-    x11, x12, x13 = x[0]
-    x21, x22, x23 = x[1] 
-    x31, x32, x33 = x[2]
-    p1 = (x22 - a**2 - c**2) * (x33 - a**2 - b**2) - (x23 + b * a )**2
-    p2 = (x23 + b * c) * (x31 + a *c) - (x12 + a *b) * (x33 - a**2 - b **2)
-    p3 = (x12 + a *b ) * (x23 + b *c) - (x13 + a * c) * (x22 - a**2 - c **2)
+    p = []
+    for i in k:
+        a = i[0]
+        b = i[1]
+        c = i[2]
+        x11, x12, x13 = x[0]
+        x21, x22, x23 = x[1] 
+        x31, x32, x33 = x[2]
+        p1 = (x22 - a**2 - c**2) * (x33 - a**2 - b**2) - (x23 + b * a )**2
+        p2 = (x23 + b * c) * (x31 + a *c) - (x12 + a *b) * (x33 - a**2 - b **2)
+        p3 = (x12 + a *b ) * (x23 + b *c) - (x13 + a * c) * (x22 - a**2 - c **2)
+        # normalised the vector
+        p_temp = np.array([p1,p2,p3])
+        p.append(p_temp / np.sqrt(np.dot(p_temp, p_temp)))
+
+    return np.array(p)
     
-    return (p1,p2,p3)
+def calc_q(k , p, omega, u = 1.25e-6):
+      
+    return 3e8 / omega / u * np.cross(k ,p)
+
+def calc_D(p,q):
+    
+    return np.array([p[:,0],q[:,1], p[:,1], q[:,0]])
+
+def calc_P(k,t):
+    return np.diag(np.exp(1j*t*k[:,2]))
+
+def construct_D(e, a, b, omega, u = 1.25e-6):
+    """
+    construct the dynamic matrix for one layer with know dielectric tensor
+    """
+    k = calc_k(e, a, b, omega, u)
+    p = calc_p(e , k , omega, u)
+    q = calc_q(k , p, omega, u)
+    return calc_D(p,q)
+    
+if __name__ == "__main__":
+    
+    e = np.diag([2,1,1]) * 8.85e-12
+    a = 0
+    b = 0
+    omega = 500e12*6
+    #print(calc_c(e,a,b,omega))
+    k = calc_k(e,a,b,omega)
+    p = calc_p(e, k, omega)
+    q = calc_q(k , p, omega)
+    D = calc_D(p,q)
+    

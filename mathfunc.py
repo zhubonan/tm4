@@ -7,6 +7,7 @@ Some useful math functions
 
 import numpy as np
 import math as m
+import scipy.constants as sc
 
 def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     """
@@ -35,7 +36,7 @@ def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     angles = rot_angles(pitch, layer_t, thickness)
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
     
-def calc_c(e, a, b , omega, u = 1.25e-6): # Check units
+def calc_c(e, a, b , omega, u = 1): # Check units
     """
     calculate the z components of 4 partial waves in medium
     
@@ -48,31 +49,36 @@ def calc_c(e, a, b , omega, u = 1.25e-6): # Check units
     return a list containting 4 roots for the z components of the partial waves
     """
     # assign names 
-    x = e* u * omega**2
+    x = e* u * omega**2 * sc.mu_0
     x11, x12, x13 = x[0]
     x21, x22, x23 = x[1] 
     x31, x32, x33 = x[2]
     # calculate the coeffciency based on symbolic expression
-    coef4 = b**2
-    coef3 = b*x23 + b*x32
-    coef2 = a**2*b**2 + a**2*x33 + a*b*x12 + a*b*x21 - b**2*x11 + b**2*x22 + \
-    b**2*x33 - x22*x33 + x23*x32
-    coef1 = a**3*x13 + a**3*x31 + a**2*b*x23 + a**2*b*x32 + 2*a*b**2*x13 + \
-    2*a*b**2*x31 + a*x12*x23 - a*x13*x22 + a*x21*x32 - a*x22*x31 + b**3*x23 + \
-    b**3*x32 - b*x11*x23 - b*x11*x32 + b*x12*x31 + b*x13*x21
-    coef0 = a**4*x11 + a**3*b*x12 + a**3*b*x21 - a**2*b**4 + 2*a**2*b**2*x11 + \
-    a**2*b**2*x22 - a**2*x11*x22 - a**2*x11*x33 + a**2*x12*x21 + a**2*x13*x31 + \
-    a*b**3*x12 + a*b**3*x21 - a*b*x12*x33 + a*b*x13*x32 - a*b*x21*x33 + \
-    a*b*x23*x31 - b**6 + b**4*x11 + b**4*x22 + b**4*x33 - b**2*x11*x22 - \
-    b**2*x11*x33 + b**2*x12*x21 + b**2*x13*x31 - b**2*x22*x33 + b**2*x23*x32 \
-    + x11*x22*x33 - x11*x23*x32 - x12*x21*x33 + x12*x23*x31 + x13*x21*x32 - x13*x22*x31
+    coef4 = x33
+    
+    coef3 = a*x13 + a*x31 + b*x23 + b*x32
+    
+    coef2 = a**2*x11 + a**2*x33 + a*b*x12 + a*b*x21 + b**2*x22 + b**2*x33 - \
+    x11*x33 + x13*x31 - x22*x33 + x23*x32
+    
+    coef1 = a**3*x13 + a**3*x31 + a**2*b*x23 + a**2*b*x32 + a*b**2*x13 + \
+    a*b**2*x31 + a*x12*x23 - a*x13*x22 + a*x21*x32 - a*x22*x31 + b**3*x23 \
+    + b**3*x32 - b*x11*x23 - b*x11*x32 + b*x12*x31 + b*x13*x21
+    
+    coef0 = a**4*x11 + a**3*b*x12 + a**3*b*x21 + a**2*b**2*x11 + a**2*b**2*x22 \
+    - a**2*x11*x22 - a**2*x11*x33 + a**2*x12*x21 + a**2*x13*x31 + a*b**3*x12 + \
+    a*b**3*x21 - a*b*x12*x33 + a*b*x13*x32 - a*b*x21*x33 + a*b*x23*x31 + \
+    b**4*x22 - b**2*x11*x22 + b**2*x12*x21 - b**2*x22*x33 + b**2*x23*x32 +  \
+    x11*x22*x33 - x11*x23*x32 - x12*x21*x33 + x12*x23*x31 + x13*x21*x32 - \
+    x13*x22*x31
+    
     # calculate the roots of the quartic equation
     c = np.roots([coef4, coef3, coef2, coef1, coef0])
     if len(c) == 2:
         return np.append(c,c)
     return c
 
-def calc_k(e , a, b, omega, u = 1.25e-6):
+def calc_k(e , a, b, omega, u = 1):
     
     """
     A wrapper to calcualte k vector 
@@ -80,7 +86,7 @@ def calc_k(e , a, b, omega, u = 1.25e-6):
     c = calc_c(e, a , b, omega, u)
     return np.array([[a, b, c[0]],[a, b , c[1]],[a,b,c[2]],[a,b,c[3]]])
     
-def calc_p(e, k,  omega, u = 1.25e-6):
+def calc_p(e, k,  omega, u = 1):
     """
     Calculate the polarisation vector based on the calculated wavevector and frequency
     equation(9.7-5)
@@ -89,7 +95,7 @@ def calc_p(e, k,  omega, u = 1.25e-6):
     
     k: 4x3 array of 4 k vectors
     """
-    x = e* u * omega**2
+    x = e* u * omega**2 * sc.mu_0
     p = []
     for i in k:
         a = i[0]
@@ -107,9 +113,9 @@ def calc_p(e, k,  omega, u = 1.25e-6):
 
     return np.array(p)
     
-def calc_q(k , p, omega, u = 1.25e-6):
+def calc_q(k , p, omega, u = 1):
       
-    return 3e8 / omega / u * np.cross(k ,p)
+    return sc.c / omega / u * np.cross(k ,p) * sc.mu_0
 
 def calc_D(p,q):
     
@@ -118,7 +124,7 @@ def calc_D(p,q):
 def calc_P(k,t):
     return np.diag(np.exp(1j*t*k[:,2]))
 
-def construct_D(e, a, b, omega, u = 1.25e-6):
+def construct_D(e, a, b, omega, u = 1):
     """
     construct the dynamic matrix for one layer with know dielectric tensor
     """
@@ -129,7 +135,7 @@ def construct_D(e, a, b, omega, u = 1.25e-6):
     
 if __name__ == "__main__":
     
-    e = np.diag([2,1,1]) * 8.85e-12
+    e = np.diag([1,1,1]) * sc.epsilon_0
     a = 0
     b = 0
     omega = 500e12*6

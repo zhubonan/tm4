@@ -5,8 +5,11 @@ class definitions
 @author: Bonan
 """
 from scipy.interpolate import interp1d
+import scipy.constants as sc
 import numpy as np
 from mathfunc import *
+#define constants
+
 class Material:
     """
     An class object that represent a type of material
@@ -16,7 +19,7 @@ class Material:
     
     def __init__(self, a, b, c, kind = 'quadratic'):
         """
-        Input some known points of the referactive index with respect to wavelength.
+        Input some known points of the relative dielectric constants with respect to wavelength.
         known_e and known_o should be 2 x N array of known values of ne and no.
         """
         self.a , self.b, self.c = np.asarray(a), np.asarray(b), np.asarray(c)
@@ -34,11 +37,14 @@ class Material:
         Return the calcuated dielectric tensor at given wave length.
         Optical axis is along the x direction by default
         """
-        e = np.diag([self.fa(wavelength), self.fb(wavelength), self.fc(wavelength)])
+        # construct the dielectric constant tensor
+        e = np.diag([self.fa(wavelength), self.fb(wavelength), self.fc(wavelength)]
+        ) * sc.epsilon_0
         return e
 
     def __call__(self, wavelength):
         return self.e_diag(wavelength)
+        
 class U_Material(Material):
     """
     An sub-class representing an uniaxial material(a!=b=c)
@@ -63,14 +69,17 @@ class Layers():
         """
         self.e = construct_epsilon(self.material(self.wavelength), self._pitch, 
                                    self._layer_thickness, self._total_thickness)
+        # Add incident and exit media, for now assume they are vaccum
+        self.e = np.append(self.e, [np.diag(np.array([1,1,1]) * sc.epsilon_0)], axis = 0)
+        self.e = np.append([np.diag([1,1,1]) * sc.epsilon_0], self.e, axis = 0)
         self.N = self.e.shape[0]
-
+    
     def set_incidence(self, direction, wavelength):
         """
         set propagation constants a and b based on incident light direction
         """
         self.wavelength = wavelength
-        self.omega = 3e8 / wavelength * 2 * np.pi
+        self.omega = sc.c / wavelength * 2 * np.pi
         k = direction / np.sqrt(np.dot(direction, direction)) * 2 * np.pi / self.wavelength
         self.a = k[0]
         self.b = k[1]
@@ -79,9 +88,16 @@ class Layers():
         self.k = [calc_k(e, self.a, self.b, self.omega) for e in self.e]
         self.p = [calc_p(self.e[i], self.k[i], self.omega) for i in range(self.N)]
         self.q = [calc_p(self.e[i], self.p[i], self.omega) for i in range(self.N)]
-        self.D = [calc_D(self.p[i], self.q[i]) for i in range(self.N)]
+        self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
    
-     
+    def update_P(self):
+        self.k = np.asarray(self.k)
+        self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2])) for i in range(self.N)]
+    ###Writhe the transfer matrix constructor
+    def update_T(self):
+        T = []
+        for i in range(self.N + 1):
+            T.append()    
 if __name__ == '__main__':
     # self-testing codes
     a = [[200e-9,300e-9,500e-9], [1,1.2,1.5]]
@@ -91,22 +107,4 @@ if __name__ == '__main__':
     l = Layers(m, 100, 30, 1000)
     l.set_incidence([1,1,-1], 450e-9)
     l.update_e()
-    l.update_D()
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
     l.update_D()

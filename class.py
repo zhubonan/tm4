@@ -69,9 +69,6 @@ class Layers():
         """
         self.e = construct_epsilon(self.material(self.wavelength), self._pitch, 
                                    self._layer_thickness, self._total_thickness)
-        # Add incident and exit media, for now assume they are vaccum
-        self.e = np.append(self.e, [np.diag(np.array([1,1,1]) * sc.epsilon_0)], axis = 0)
-        self.e = np.append([np.diag([1,1,1]) * sc.epsilon_0], self.e, axis = 0)
         self.N = self.e.shape[0]
     
     def set_incidence(self, direction, wavelength):
@@ -83,6 +80,8 @@ class Layers():
         k = direction / np.sqrt(np.dot(direction, direction)) * 2 * np.pi / self.wavelength
         self.a = k[0]
         self.b = k[1]
+        self._p_incident_p_polarised = normalise(np.cross([self.b, -self.a, 0], k))
+        self._p_incident_s_polarised = normalise(np.array([self.b, -self.a, 0]))
         
     def update_D(self):
         self.k = [calc_k(e, self.a, self.b, self.omega) for e in self.e]
@@ -94,17 +93,21 @@ class Layers():
         self.k = np.asarray(self.k)
         self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2])) for i in range(self.N)]
     ###Writhe the transfer matrix constructor
-    def update_T(self):
-        T = []
-        for i in range(self.N + 1):
-            T.append()    
+    def calc_T_medium(self):
+        T_medium = np.diag([1,1,1,1])
+        for i in range(self.N):
+            T_medium = T_medium.dot(self.D[i].dot(self.P[i].dot(np.linalg.inv(self.D[i]))))
+        self.T_medium = T_medium
+    5
 if __name__ == '__main__':
     # self-testing codes
     a = [[200e-9,300e-9,500e-9], [1,1.2,1.5]]
     b = [[200e-9,300e-9,500e-9], [1,1.3,1.5]]
     c = [[200e-9,300e-9,600e-9], [1,1.5,1.6]]
     m = U_Material(a,b)
-    l = Layers(m, 100, 30, 1000)
+    l = Layers(m, 109, 30, 1000)
     l.set_incidence([1,1,-1], 450e-9)
     l.update_e()
     l.update_D()
+    l.update_P()
+    l.calc_T_medium()

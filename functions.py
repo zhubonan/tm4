@@ -6,7 +6,10 @@ This file contains functions for mathematical manipulations
 @author: Bonan
 """
 import numpy as np
-
+import math
+def normalise(vector):
+    return vector / math.sqrt(np.dot(vector, vector))
+    
 def v_p(epsilon, k, omega, mu = 1):
     """
     Constructe the polarisation vection with given wave vectors

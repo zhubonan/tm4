@@ -6,9 +6,12 @@ Some useful math functions
 """
 
 import numpy as np
-import math as m
+import math
 import scipy.constants as sc
 
+def normalise(vector):
+    return vector / math.sqrt(np.dot(vector, vector))
+    
 def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     """
     construct the dielectric matrices of all layers
@@ -19,7 +22,7 @@ def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
         """
         Return rotation matrix that rotates with repect to z axis with theta degress
         """
-        rot = np.array([[m.cos(theta), -m.sin(theta), 0],[m.sin(theta), m.cos(theta), 0]
+        rot = np.array([[math.cos(theta), -math.sin(theta), 0],[math.sin(theta), math.cos(theta), 0]
                         ,[0, 0, 1]])
         return rot
 
@@ -29,7 +32,7 @@ def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
         get a array containing the anlges base on the pitch and thickness given
         """
         # get the number of layers 
-        n_l = m.modf(thickness/layer_t)
+        n_l = math.modf(thickness/layer_t)
         return np.linspace(0,2*np.pi*thickness/pitch,n_l[1])
         
         

@@ -86,7 +86,7 @@ class Layers():
     def update_D(self):
         self.k = [calc_k(e, self.a, self.b, self.omega) for e in self.e]
         self.p = [calc_p(self.e[i], self.k[i], self.omega) for i in range(self.N)]
-        self.q = [calc_p(self.e[i], self.p[i], self.omega) for i in range(self.N)]
+        self.q = [calc_q(self.k[i], self.p[i], self.omega) for i in range(self.N)]
         self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
    
     def update_P(self):
@@ -98,7 +98,7 @@ class Layers():
         for i in range(self.N):
             T_medium = T_medium.dot(self.D[i].dot(self.P[i].dot(np.linalg.inv(self.D[i]))))
         self.T_medium = T_medium
-    5
+        
 if __name__ == '__main__':
     # self-testing codes
     a = [[200e-9,300e-9,500e-9], [1,1.2,1.5]]

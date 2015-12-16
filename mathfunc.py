@@ -117,8 +117,18 @@ def calc_p(e, k,  omega, u = 1):
     return np.array(p)
     
 def calc_q(k , p, omega, u = 1):
+    """
+    calcualte the direction of q vector based on the k and q vectors given
+    
+    k: an 4x3 array of 4 k vectors
+    
+    p: an 4x3 array of 4 p vectors
+    
+    return a 4x3 array of 4 q vectors
+    """
+    
       
-    return sc.c / omega / u * np.cross(k ,p) * sc.mu_0
+    return  np.cross(k ,p)  * sc.c / omega / u / sc.mu_0
 
 def calc_D(p,q):
     

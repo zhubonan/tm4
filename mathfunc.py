@@ -40,20 +40,18 @@ def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
     angles = rot_angles(pitch, layer_t, thickness)
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
     
-def calc_c(e, a, b , omega, u = 1): # Check units
+def calc_c(e, a, b , u = 1): # Check units
     """
     calculate the z components of 4 partial waves in medium
     
     e: dielectric tensor
     
     a,b: components of wavevector in direction of x and y direction
-    
-    omega: fequency
-    
+        
     return a list containting 4 roots for the z components of the partial waves
     """
     # assign names 
-    x = e* u * omega**2 * sc.mu_0
+    x = e * u
     x11, x12, x13 = x[0]
     x21, x22, x23 = x[1] 
     x31, x32, x33 = x[2]
@@ -82,15 +80,15 @@ def calc_c(e, a, b , omega, u = 1): # Check units
         return np.append(c,c)
     return c
 
-def calc_k(e , a, b, omega, u = 1):
+def calc_k(e , a, b, u = 1):
     
     """
     A wrapper to calcualte k vector 
     """
-    c = calc_c(e, a , b, omega, u)
+    c = calc_c(e, a , b, u)
     return np.array([[a, b, c[0]],[a, b , c[1]],[a,b,c[2]],[a,b,c[3]]])
     
-def calc_p(e, k,  omega, u = 1): #something is wrong with this function. Not giving
+def calc_p(e, k,  u = 1): #something is wrong with this function. Not giving
 #correct directions
     """
     Calculate the polarisation vector based on the calculated wavevector and frequency
@@ -100,7 +98,7 @@ def calc_p(e, k,  omega, u = 1): #something is wrong with this function. Not giv
     
     k: 4x3 array of 4 k vectors
     """
-    x = e* u * omega**2 * sc.mu_0
+    x = e * u
     p = []
     x11, x12, x13 = x[0]
     x21, x22, x23 = x[1] 
@@ -114,13 +112,13 @@ def calc_p(e, k,  omega, u = 1): #something is wrong with this function. Not giv
                             [x21 + a * b, x22 - a**2 - c **2, x23 + b *c ],
                             [x31 + a * c, x32 + b * c, x33 - a**2 - b**2]])
 
-        # normalised the vector
+        # The function seems to return the normalised null spcae vector
         p.append(null(coeff_m))
 
     return np.array(p)
 
     
-def calc_q(k , p, omega, u = 1):
+def calc_q(k , p,  u = 1):
     """
     calcualte the direction of q vector based on the k and q vectors given
     
@@ -129,10 +127,14 @@ def calc_q(k , p, omega, u = 1):
     p: an 4x3 array of 4 p vectors
     
     return a 4x3 array of 4 q vectors
+    
+    use a special unit for the magnetic field such that c/2pi/mu_0 = 1
+    
+    note these vectors are not normlised
     """
     
       
-    return  np.cross(k ,p)  * sc.c / omega / u / sc.mu_0
+    return  np.cross(k ,p)  / u 
 
 def calc_D(p,q):
     
@@ -152,25 +154,52 @@ def construct_D(e, a, b, omega, u = 1):
     
 
 
-def null(A, eps=1e-10):
+def null(A, eps=1e-15):
     """
     Return the null vector of matrix A, usefull for calculate the p vector with
     known k vector
     """
     u, s, vh = np.linalg.svd(A)
     null_mask = (s <= eps)
-    null_space = np.compress(null_mask, vh, axis=0).flatten()
+    # relax the threshold if no null singularity is identified
+    if null_mask.any() == False:
+        return null(A, eps*10)
+    
+    null_space = np.compress(null_mask, vh, axis=0).flatten()     
     return np.transpose(null_space)
 
+def incident_p(k):
+    """
+    Calculate the 4 polarisation vectors based on the incident wave wave vector.
+    Assuming the medium is isotropic and polarastion is splited into s and p
+    k is a 3-vector
+    return a array of ps+,ps-,pp+,pp-
+    """
+    if k[0] == 0 and k[1] == 0:
+        return np.array([[1,0,0],[1,0,0],[0,1,0],[0,1,0]])
+    k = np.array(k)
+    ps = normalise(np.cross(k, [k[0],k[1],0]))
+    pp = normalise(np.cross(k,ps))
+    
+    return np.array([ps,ps,pp,pp])
+    
+def stack_dot(array):
+    """
+    Take the matrix product along 1st axis
+    """
+    product = np.identity(len(array[0]))
+    for i in array:
+        product = product.dot(i)
+    return product
+    
 if __name__ == "__main__":
     
-    e = np.diag([2,1,1]) * sc.epsilon_0
-    a = 0
-    b = 0
-    omega = 500e12*6
+    e = np.diag([2,1,1])
+    a = 0.5
+    b = 0.8
     #print(calc_c(e,a,b,omega))
-    k = calc_k(e,a,b,omega)
-    p = calc_p(e, k, omega)
-    q = calc_q(k , p, omega)
+    k = calc_k(e,a,b)
+    p = calc_p(e, k)
+    q = calc_q(k , p)
     D = calc_D(p,q)
     

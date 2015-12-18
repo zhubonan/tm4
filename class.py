@@ -39,7 +39,7 @@ class Material:
         """
         # construct the dielectric constant tensor
         e = np.diag([self.fa(wavelength), self.fb(wavelength), self.fc(wavelength)]
-        ) * sc.epsilon_0
+        )
         return e
 
     def __call__(self, wavelength):
@@ -58,6 +58,7 @@ class Layers():
     An class object represent anisotropic multilayer filter
     """
     def __init__(self, material, pitch, layer_thickness, total_thickness):
+        """Initialise a multilayer system. The length scale"""
         self.material = material
         self._pitch = pitch
         self._layer_thickness = layer_thickness
@@ -65,7 +66,7 @@ class Layers():
         
     def update_e(self):
         """
-        calculate the dielectric matrix for all layers
+        calculate the relative dielectric matrix for all layers
         """
         self.e = construct_epsilon(self.material(self.wavelength), self._pitch, 
                                    self._layer_thickness, self._total_thickness)
@@ -73,32 +74,51 @@ class Layers():
     
     def set_incidence(self, direction, wavelength):
         """
-        set propagation constants a and b based on incident light direction
+        Set propagation constants a and b based on incident light direction
+        The problem is scaled such that the wavelength is one
         """
         self.wavelength = wavelength
+        self.scale_factor = 2* np.pi /wavelength
         self.omega = sc.c / wavelength * 2 * np.pi
-        k = direction / np.sqrt(np.dot(direction, direction)) * 2 * np.pi / self.wavelength
+        # k is the incident wave vector here
+        k = direction / np.sqrt(np.dot(direction, direction))
         self.a = k[0]
         self.b = k[1]
-        self._p_incident_p_polarised = normalise(np.cross([self.b, -self.a, 0], k))
-        self._p_incident_s_polarised = normalise(np.array([self.b, -self.a, 0]))
+        self._incident_p = incident_p(k)
+        # assign 4 k vectors for four polarisations
+        k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
+        # construct the dynamical matrix of the incident media
+        self.D0 = calc_D(self._incident_p, calc_q(k0, self._incident_p))
         
     def update_D(self):
-        self.k = [calc_k(e, self.a, self.b, self.omega) for e in self.e]
-        self.p = [calc_p(self.e[i], self.k[i], self.omega) for i in range(self.N)]
-        self.q = [calc_q(self.k[i], self.p[i], self.omega) for i in range(self.N)]
+        self.k = [calc_k(e, self.a, self.b) for e in self.e]
+        self.p = [calc_p(self.e[i], self.k[i]) for i in range(self.N)]
+        self.q = [calc_q(self.k[i], self.p[i]) for i in range(self.N)]
         self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
+        # add dynamic matrix of the incident/exiting medium to the end of the stack
+        self.D = np.append([self.D0], self.D, axis = 0)
+        self.D = np.append(self.D, [self.D0], axis = 0)
    
     def update_P(self):
         self.k = np.asarray(self.k)
-        self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2])) for i in range(self.N)]
+        self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2] * self.scale_factor)) for i in range(self.N)]
+        # Add the propagation matrix of the exiting medium(identity)
+        self.P = np.append(self.P, [np.diag([1,1,1,1])], axis = 0)
     ###Writhe the transfer matrix constructor
-    def calc_T_medium(self):
-        T_medium = np.diag([1,1,1,1])
-        for i in range(self.N):
-            T_medium = T_medium.dot(self.D[i].dot(self.P[i].dot(np.linalg.inv(self.D[i]))))
-        self.T_medium = T_medium
+    def update_T(self):
         
+        if len(self.D) == self.N + 2 and len(self.P) == self.N + 1:
+            self.T = [np.linalg.solve(self.D[i], self.D[i+1].dot(self.P[i])) for i in range(self.N +1)]
+        else:
+            print("Mismatched D and P stack")
+        self.T_total = stack_dot(self.T)
+    
+    def doit(self):
+         self.update_e()
+         self.update_D()
+         self.update_P()
+         self.update_T()
+         
 if __name__ == '__main__':
     # self-testing codes
     a = [[200e-9,300e-9,500e-9], [1,1.2,1.5]]
@@ -107,7 +127,4 @@ if __name__ == '__main__':
     m = U_Material(a,b)
     l = Layers(m, 109, 30, 1000)
     l.set_incidence([0,0,1], 450e-9)
-    l.update_e()
-    l.update_D()
-    l.update_P()
-    l.calc_T_medium()
+    l.doit()

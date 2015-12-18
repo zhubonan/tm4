@@ -106,7 +106,7 @@ if __name__ == '__main__':
     c = [[200e-9,300e-9,600e-9], [1,1.5,1.6]]
     m = U_Material(a,b)
     l = Layers(m, 109, 30, 1000)
-    l.set_incidence([1,1,-1], 450e-9)
+    l.set_incidence([0,0,1], 450e-9)
     l.update_e()
     l.update_D()
     l.update_P()

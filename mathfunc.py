@@ -90,7 +90,8 @@ def calc_k(e , a, b, omega, u = 1):
     c = calc_c(e, a , b, omega, u)
     return np.array([[a, b, c[0]],[a, b , c[1]],[a,b,c[2]],[a,b,c[3]]])
     
-def calc_p(e, k,  omega, u = 1):
+def calc_p(e, k,  omega, u = 1): #something is wrong with this function. Not giving
+#correct directions
     """
     Calculate the polarisation vector based on the calculated wavevector and frequency
     equation(9.7-5)
@@ -112,6 +113,7 @@ def calc_p(e, k,  omega, u = 1):
         coeff_m = np.array([[x11 - b**2 - c**2, x12 + a * b, x13 + a *c],
                             [x21 + a * b, x22 - a**2 - c **2, x23 + b *c ],
                             [x31 + a * c, x32 + b * c, x33 - a**2 - b**2]])
+
         # normalised the vector
         p.append(null(coeff_m))
 

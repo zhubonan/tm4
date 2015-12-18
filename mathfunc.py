@@ -8,6 +8,7 @@ Some useful math functions
 import numpy as np
 import math
 import scipy.constants as sc
+import scipy
 
 def normalise(vector):
     return vector / math.sqrt(np.dot(vector, vector))
@@ -100,21 +101,22 @@ def calc_p(e, k,  omega, u = 1):
     """
     x = e* u * omega**2 * sc.mu_0
     p = []
+    x11, x12, x13 = x[0]
+    x21, x22, x23 = x[1] 
+    x31, x32, x33 = x[2]
+    global coeff_m
     for i in k:
         a = i[0]
         b = i[1]
         c = i[2]
-        x11, x12, x13 = x[0]
-        x21, x22, x23 = x[1] 
-        x31, x32, x33 = x[2]
-        p1 = (x22 - a**2 - c**2) * (x33 - a**2 - b**2) - (x23 + b * a )**2
-        p2 = (x23 + b * c) * (x31 + a *c) - (x12 + a *b) * (x33 - a**2 - b **2)
-        p3 = (x12 + a *b ) * (x23 + b *c) - (x13 + a * c) * (x22 - a**2 - c **2)
+        coeff_m = np.array([[x11 - b**2 - c**2, x12 + a * b, x13 + a *c],
+                            [x21 + a * b, x22 - a**2 - c **2, x23 + b *c ],
+                            [x31 + a * c, x32 + b * c, x33 - a**2 - b**2]])
         # normalised the vector
-        p_temp = np.array([p1,p2,p3])
-        p.append(p_temp / np.sqrt(np.dot(p_temp, p_temp)))
+        p.append(null(coeff_m))
 
     return np.array(p)
+
     
 def calc_q(k , p, omega, u = 1):
     """
@@ -146,9 +148,21 @@ def construct_D(e, a, b, omega, u = 1):
     q = calc_q(k , p, omega, u)
     return calc_D(p,q)
     
+
+
+def null(A, eps=1e-10):
+    """
+    Return the null vector of matrix A, usefull for calculate the p vector with
+    known k vector
+    """
+    u, s, vh = np.linalg.svd(A)
+    null_mask = (s <= eps)
+    null_space = np.compress(null_mask, vh, axis=0).flatten()
+    return np.transpose(null_space)
+
 if __name__ == "__main__":
     
-    e = np.diag([1,1,1]) * sc.epsilon_0
+    e = np.diag([2,1,1]) * sc.epsilon_0
     a = 0
     b = 0
     omega = 500e12*6

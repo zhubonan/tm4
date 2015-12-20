@@ -118,19 +118,34 @@ class Layers():
         self.coeff_modulus = self.coeff.copy()
         for i in self.coeff_modulus:
             self.coeff_modulus[i] = np.abs(self.coeff_modulus[i])**2
+    def LR_basis(self):
+        """
+        Caculate T_total and coefficients for LR polarised light
+        """
+        a = 1/math.sqrt(2)
+        b = - 1j / math.sqrt(2)
+        M = np.array([[a,0,a,0],[0,a,0,a],[b,0,-b,0],[0,b,0,-b]])
+        N = np.array([[a,0,a,0],[0,0,0,0],[b,0,-b,0],[0,0,0,0]])
+        self.T_total_LR = np.linalg.solve(M, self.T_total.dot(N))
+        self.coeff_LR = calc_coeff(self.T_total_LR)
+        self.coeff_modulus_LR = self.coeff_LR.copy()
+        for i in self.coeff_modulus_LR:
+            self.coeff_modulus_LR[i] = np.abs(self.coeff_modulus_LR[i])**2
             
     def doit(self):
          self.update_e()
          self.update_D()
          self.update_P()
          self.update_T()
+         self.LR_basis()
 
 if __name__ == '__main__':
     # self-testing codes
     a = [[200,300,500], [1,1.2,1.5]]
-    b = [[200,300,500], [1,1.3,1.5]]
+    b = [[200,300,500], [1.1,1.3,1.6]]
     c = [[200,300,600], [1,1.5,1.6]]
     m = U_Material(a,b)
-    l = Layers(m, 109, 30, 1000)
+    l = Layers(m, 100, 10, 5000)
     l.set_incidence([0,0,1], 450)
     l.doit()
+    print(l.coeff_modulus_LR)

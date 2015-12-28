@@ -103,7 +103,6 @@ def calc_p(e, k,  u = 1): #something is wrong with this function. Not giving
     x11, x12, x13 = x[0]
     x21, x22, x23 = x[1] 
     x31, x32, x33 = x[2]
-    global coeff_m
     for i in k:
         a = i[0]
         b = i[1]

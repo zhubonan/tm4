@@ -7,8 +7,6 @@ Some useful math functions
 
 import numpy as np
 import math
-import scipy.constants as sc
-import scipy
 
 def normalise(vector):
     return vector / math.sqrt(np.dot(vector, vector))
@@ -190,7 +188,22 @@ def stack_dot(array):
     for i in array:
         product = product.dot(i)
     return product
-    
+
+def calc_coeff(T):
+    """
+    Given the transfer matrix calculate the transmission and reflection coefficients
+    """
+    deno = (T[0,0] * T[2,2] - T[0,2] * T[2,0])
+    rss = (T[1,0] * T[2,2] - T[1,2] * T[2,0])/deno
+    rsp = (T[3,0] * T[2,2] - T[3,2] * T[2,0])/deno
+    rps = (T[0,0] * T[1,2] - T[1,0] * T[0,2])/deno
+    rpp = (T[0,0] * T[3,2] - T[3,0] * T[0,2])/deno
+    tss = T[2,2]/deno
+    tsp = -T[2,0]/deno
+    tps = -T[0,2]/deno
+    tpp = T[0,0]/deno
+    return {"rss":rss, "rsp":rsp, "rps":rps, "rpp":rpp, "tss":tss, "tsp":tsp,
+            "tps":tps, "tpp":tpp}
 if __name__ == "__main__":
     
     e = np.diag([2,1,1])

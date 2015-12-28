@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
 from mathfunc import *
-#define constants
 
 class Material:
     """
@@ -106,25 +105,47 @@ class Layers():
         self.P = np.append(self.P, [np.diag([1,1,1,1])], axis = 0)
     ###Writhe the transfer matrix constructor
     def update_T(self):
-        
+        """
+        Calcualte transfer matrix for each interface and get the overall one
+        Then calculate coupled refelctivity and transmisivity
+        """
         if len(self.D) == self.N + 2 and len(self.P) == self.N + 1:
             self.T = [np.linalg.solve(self.D[i], self.D[i+1].dot(self.P[i])) for i in range(self.N +1)]
         else:
             print("Mismatched D and P stack")
         self.T_total = stack_dot(self.T)
-    
+        self.coeff = calc_coeff(self.T_total)
+        self.coeff_modulus = self.coeff.copy()
+        for i in self.coeff_modulus:
+            self.coeff_modulus[i] = np.abs(self.coeff_modulus[i])**2
+    def LR_basis(self):
+        """
+        Caculate T_total and coefficients for LR polarised light
+        """
+        a = 1/math.sqrt(2)
+        b = - 1j / math.sqrt(2)
+        M = np.array([[a,0,a,0],[0,a,0,a],[b,0,-b,0],[0,b,0,-b]])
+        N = np.array([[a,0,a,0],[0,0,0,0],[b,0,-b,0],[0,0,0,0]])
+        self.T_total_LR = np.linalg.solve(M, self.T_total.dot(N))
+        self.coeff_LR = calc_coeff(self.T_total_LR)
+        self.coeff_modulus_LR = self.coeff_LR.copy()
+        for i in self.coeff_modulus_LR:
+            self.coeff_modulus_LR[i] = np.abs(self.coeff_modulus_LR[i])**2
+            
     def doit(self):
          self.update_e()
          self.update_D()
          self.update_P()
          self.update_T()
-         
+         self.LR_basis()
+
 if __name__ == '__main__':
     # self-testing codes
-    a = [[200e-9,300e-9,500e-9], [1,1.2,1.5]]
-    b = [[200e-9,300e-9,500e-9], [1,1.3,1.5]]
-    c = [[200e-9,300e-9,600e-9], [1,1.5,1.6]]
+    a = [[200,300,500], [1,1.2,1.5]]
+    b = [[200,300,500], [1.1,1.3,1.6]]
+    c = [[200,300,600], [1,1.5,1.6]]
     m = U_Material(a,b)
-    l = Layers(m, 109, 30, 1000)
-    l.set_incidence([0,0,1], 450e-9)
+    l = Layers(m, 100, 10, 5000)
+    l.set_incidence([0,0,1], 450)
     l.doit()
+    print(l.coeff_modulus_LR)

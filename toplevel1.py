@@ -7,13 +7,13 @@ Test codes
 
 import numpy as np
 import matplotlib.pyplot as plt
-from multilayer import Layers,U_Material
+from multilayer import H_Layers,U_Material
 
 #%% Initialise the instance object
 a = [[200,300,1000], [2,2,2]]
 b = [[200,300,1000], [2.1,2.1,2.1]]
 m = U_Material(a,b)
-l = Layers(m, 600,50,2000)
+l = H_Layers(m, 300,25,5000)
 incident = [1,1,1]
 #%% calculation routine
 lam = []

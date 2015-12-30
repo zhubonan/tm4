@@ -8,12 +8,11 @@ from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
 from mathfunc import *
+from numpy.linalg import inv
 
 class Material:
     """
-    An class object that represent a type of material
-    For now the material is an uniaxial birefringent. Optical axis is aligned with
-    x direction in the lab frame
+    An class object that represent any type of anisotropic material
     """
     
     def __init__(self, a, b, c, kind = 'quadratic'):
@@ -52,9 +51,9 @@ class U_Material(Material):
         Material.__init__(self, e,o,o,kind)
     
 
-class Layers():
+class H_Seg():
     """
-    An class object represent anisotropic multilayer filter
+    An class object represent a stack of helicoidal arranged layers
     """
     def __init__(self, material, pitch, layer_thickness, total_thickness):
         """Initialise a multilayer system. The length scale"""
@@ -62,7 +61,6 @@ class Layers():
         self._pitch = pitch
         self._layer_thickness = layer_thickness
         self._total_thickness = total_thickness
-        
     def update_e(self):
         """
         calculate the relative dielectric matrix for all layers
@@ -83,6 +81,7 @@ class Layers():
         k = direction / np.sqrt(np.dot(direction, direction))
         self.a = k[0]
         self.b = k[1]
+        # set incident light polarisation directions
         self._incident_p = incident_p(k)
         # assign 4 k vectors for four polarisations
         k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
@@ -95,29 +94,79 @@ class Layers():
         self.q = [calc_q(self.k[i], self.p[i]) for i in range(self.N)]
         self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
         # add dynamic matrix of the incident/exiting medium to the end of the stack
-        self.D = np.append([self.D0], self.D, axis = 0)
-        self.D = np.append(self.D, [self.D0], axis = 0)
+        # no need for now as the class represent an segment only
+        #self.D = np.append([self.D0], self.D, axis = 0)
+        #self.D = np.append(self.D, [self.D0], axis = 0)
    
     def update_P(self):
         self.k = np.asarray(self.k)
         self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2] * self.scale_factor)) for i in range(self.N)]
-        # Add the propagation matrix of the exiting medium(identity)
-        self.P = np.append(self.P, [np.diag([1,1,1,1])], axis = 0)
-    ###Writhe the transfer matrix constructor
+
+        
     def update_T(self):
         """
-        Calcualte transfer matrix for each interface and get the overall one
-        Then calculate coupled refelctivity and transmisivity
+        Calcualte effective transfer matrix for each layer T_eff = D(N)P(N)D-1(N)
         """
-        if len(self.D) == self.N + 2 and len(self.P) == self.N + 1:
-            self.T = [np.linalg.solve(self.D[i], self.D[i+1].dot(self.P[i])) for i in range(self.N +1)]
+        self.T_eff = [self.D[i].dot(self.P[i].dot(np.linalg.inv(self.D[i]))) for i in range(self.N)]
+        self.T_eff_total = stack_dot(self.T_eff)
+        
+    def doit(self):
+         self.update_e()
+         self.update_D()
+         self.update_P()
+         self.update_T()
+
+         
+class H_Layers():
+    """
+    Multilayer structure with helicoidal arrangement
+    Calculate dynamic and propagation matrix for one segment only
+    """
+    def __init__(self, material, pitch, layer_thickness, total_thickness):
+        """
+        Initialise self and sub-segments
+        """
+        self.material = material
+        self._pitch = pitch
+        # descard any incomplete layers
+        total_thickness = total_thickness - total_thickness%layer_thickness
+        self._layer_thickness = layer_thickness
+        self._total_thickness = total_thickness
+        # consider the case where there is no reminder part
+        if total_thickness % pitch != 0 :
+            self._flag_has_reminder = True
+            self._reminder = H_Seg(material, pitch, layer_thickness, total_thickness % pitch)
+        else: self._flag_has_reminder = False
+        
+        self._repeat = H_Seg(material, pitch, layer_thickness, pitch)
+        self._N_of_units = int(total_thickness/pitch)
+                  
+    def set_incidence(self, direction, wavelength):
+        """
+        Set incidence wave parameters and pass on to sub-layers
+        """
+        H_Seg.set_incidence(self, direction, wavelength)
+        self._repeat.set_incidence(direction, wavelength)
+        if self._flag_has_reminder:
+            self._reminder.set_incidence(direction, wavelength)
+    
+    def calc_T(self):
+        #Calculate the total transfer matrix for the bulk material
+        self._repeat.doit()
+        if self._flag_has_reminder:
+            self._reminder.doit()
+        # calculate the layer part of the total transfer matrix
+            T_layers = np.linalg.matrix_power(self._repeat.T_eff_total, 
+                       self._N_of_units).dot(self._reminder.T_eff_total)
         else:
-            print("Mismatched D and P stack")
-        self.T_total = stack_dot(self.T)
+            T_layers = np.linalg.matrix_power(self._repeat.T_eff_total, 
+                       self._N_of_units)
+        # Now add dynamic matrix of the incident and exiting medium
+        # Assume to be the vacuum for now
+        self.T_total = inv(self.D0).dot(T_layers.dot(self.D0))
         self.coeff = calc_coeff(self.T_total)
         self.coeff_modulus = self.coeff.copy()
-        for i in self.coeff_modulus:
-            self.coeff_modulus[i] = np.abs(self.coeff_modulus[i])**2
+        
     def LR_basis(self):
         """
         Caculate T_total and coefficients for LR polarised light
@@ -131,21 +180,17 @@ class Layers():
         self.coeff_modulus_LR = self.coeff_LR.copy()
         for i in self.coeff_modulus_LR:
             self.coeff_modulus_LR[i] = np.abs(self.coeff_modulus_LR[i])**2
-            
     def doit(self):
-         self.update_e()
-         self.update_D()
-         self.update_P()
-         self.update_T()
-         self.LR_basis()
-
+        self.calc_T()
+        self.LR_basis()
+        
 if __name__ == '__main__':
     # self-testing codes
     a = [[200,300,500], [1,1.2,1.5]]
     b = [[200,300,500], [1.1,1.3,1.6]]
     c = [[200,300,600], [1,1.5,1.6]]
     m = U_Material(a,b)
-    l = Layers(m, 100, 10, 5000)
+    l = H_Layers(m, 100, 10, 5009)
     l.set_incidence([0,0,1], 450)
     l.doit()
-    print(l.coeff_modulus_LR)
+    

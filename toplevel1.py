@@ -14,13 +14,14 @@ a = [[200,300,1000], [2,2,2]]
 b = [[200,300,1000], [2.1,2.1,2.1]]
 m = U_Material(a,b)
 l = Layers(m, 600,50,2000)
+incident = [1,1,1]
 #%% calculation routine
 lam = []
 rrr = []
 rll = []
 
-for wavelength in np.linspace(400,900, 100):
-    l.set_incidence([0,0,1], wavelength)
+for wavelength in np.linspace(400,900, 50):
+    l.set_incidence(incident, wavelength)
     l.doit()
     rrr.append(l.coeff_modulus_LR["rpp"])
     rll.append(l.coeff_modulus_LR["rss"])
@@ -31,5 +32,5 @@ plt.plot(lam,rll, label = "L-L reflectivity")
 plt.xlabel("Wavelength /nm")
 plt.ylabel("Reflectivity")
 plt.legend(loc = 2)
-plt.title("[0,0,1] incidence")
+plt.title(str(incident)+ "  incidence")
     

@@ -13,7 +13,7 @@ from multilayer import H_Layers,U_Material
 a = [[200,300,1000], [2,2,2]]
 b = [[200,300,1000], [2.1,2.1,2.1]]
 m = U_Material(a,b)
-l = H_Layers(m, 300,25,5000)
+l = H_Layers(m, 600,50,2000)
 incident = [1,1,1]
 #%% calculation routine
 lam = []

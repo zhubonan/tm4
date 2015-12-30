@@ -105,10 +105,11 @@ class H_Seg():
         
     def update_T(self):
         """
-        Calcualte effective transfer matrix for each layer T_eff = D(N)P(N)D-1(N)
+        Calcualte effective transfer matrix for each internal interface T_eff = D[N]D[N+1]P[N+1]
         """
-        self.T_eff = [self.D[i].dot(self.P[i].dot(np.linalg.inv(self.D[i]))) for i in range(self.N)]
-        self.T_eff_total = stack_dot(self.T_eff)
+        self.T_eff = [np.linalg.solve(self.D[i-1],self.D[i].dot(self.P[i])) for i in range(1,self.N)]
+        # multiply terms of D[0]P[0] and D[N-1]-1 to the product        
+        self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
         
     def doit(self):
          self.update_e()
@@ -163,7 +164,7 @@ class H_Layers():
                        self._N_of_units)
         # Now add dynamic matrix of the incident and exiting medium
         # Assume to be the vacuum for now
-        self.T_total = inv(self.D0).dot(T_layers.dot(self.D0))
+        self.T_total = np.linalg.solve(self.D0, T_layers.dot(self.D0))
         self.coeff = calc_coeff(self.T_total)
         self.coeff_modulus = self.coeff.copy()
         

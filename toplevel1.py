@@ -20,7 +20,7 @@ lam = []
 rrr = []
 rll = []
 
-for wavelength in np.linspace(400,900, 50):
+for wavelength in np.linspace(400,900, 100):
     l.set_incidence(incident, wavelength)
     l.doit()
     rrr.append(l.coeff_modulus_LR["rpp"])

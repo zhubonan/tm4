@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
 from mathfunc import *
-from numpy.linalg import inv
+from abc import ABCMeta, abstractmethod
 
 class Material:
     """
@@ -49,30 +49,21 @@ class U_Material(Material):
     """
     def __init__(self, e, o, kind = 'quadratic'):
         Material.__init__(self, e,o,o,kind)
-    
 
-class H_Seg():
+class Seg(metaclass = ABCMeta):
     """
-    An class object represent a stack of helicoidal arranged layers
+    An abstract class represent a stack of birefringent layers
     """
-    def __init__(self, material, pitch, layer_thickness, total_thickness):
-        """Initialise a multilayer system. The length scale"""
+    def __init__(self, material, **structure):
         self.material = material
-        self._pitch = pitch
-        self._layer_thickness = layer_thickness
-        self._total_thickness = total_thickness
-    def update_e(self):
-        """
-        calculate the relative dielectric matrix for all layers
-        """
-        self.e = construct_epsilon(self.material(self.wavelength), self._pitch, 
-                                   self._layer_thickness, self._total_thickness)
-        self.N = self.e.shape[0]
-    
+        # store stucture_parameters
+        self.structure_paras = structure
+            
     def set_incidence(self, direction, wavelength):
         """
         Set propagation constants a and b based on incident light direction
         The problem is scaled such that the wavelength is one
+        Universal to any structure
         """
         self.wavelength = wavelength
         self.scale_factor = 2* np.pi /wavelength
@@ -87,41 +78,84 @@ class H_Seg():
         k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
         # construct the dynamical matrix of the incident media
         self.D0 = calc_D(self._incident_p, calc_q(k0, self._incident_p))
-        
+    
+    @abstractmethod    
+    def update_thickness(self):
+        """
+        Update the thickness information
+        store information in self._thickness as an array. Structure specific
+        """
+        pass
+    
+    @abstractmethod
+    def update_e(self):
+        """
+        Update the dielectric matrices. Structure specific
+        """
+        pass
+    
     def update_D(self):
         self.k = [calc_k(e, self.a, self.b) for e in self.e]
         self.p = [calc_p(self.e[i], self.k[i]) for i in range(self.N)]
         self.q = [calc_q(self.k[i], self.p[i]) for i in range(self.N)]
         self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
-        # add dynamic matrix of the incident/exiting medium to the end of the stack
-        # no need for now as the class represent an segment only
-        #self.D = np.append([self.D0], self.D, axis = 0)
-        #self.D = np.append(self.D, [self.D0], axis = 0)
-   
+        
     def update_P(self):
         self.k = np.asarray(self.k)
-        self.P = [np.diag(np.exp(1j* self._layer_thickness * self.k[i,:,2] * self.scale_factor)) for i in range(self.N)]
+        self.P = [np.diag(np.exp(1j* self._thickness[i] * self.k[i,:,2] * self.scale_factor)) for i in range(self.N)]
 
-        
     def update_T(self):
         """
         Calcualte effective transfer matrix for each internal interface T_eff = D[N]D[N+1]P[N+1]
+        Then multiply remaining term to calculate the effective transfer matrix 
+        of the segment. Incident and exiting mediums are not taken into consideration
         """
         self.T_eff = [np.linalg.solve(self.D[i-1],self.D[i].dot(self.P[i])) for i in range(1,self.N)]
         # multiply terms of D[0]P[0] and D[N-1]-1 to the product        
         self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
         
     def doit(self):
-         self.update_e()
-         self.update_D()
-         self.update_P()
-         self.update_T()
-
+        """
+        Do as much calculation as possible
+        """
+        self.update_e()
+        self.update_thickness()
+        self.update_D()
+        self.update_P()
+        self.update_T()
          
+         
+class H_Seg(Seg):
+    """
+    An class object represent a stack of helicoidal arranged layers
+    """
+    def __init__(self, material, pitch, layer_thickness, total_thickness):
+        
+        self.material = material
+        self.structure_paras = [pitch, layer_thickness, total_thickness]
+        
+    def update_e(self):
+        """
+        calculate the relative dielectric matrix for all layers
+        """
+        self.e = construct_epsilon(self.material(self.wavelength), *self.structure_paras)
+        # store the number of stacks
+        self.N = self.e.shape[0]
+
+    def update_thickness(self):
+        """
+        Build the array to represent the thickness data
+        """
+        self._thickness = np.full(self.e.shape[0], self.structure_paras[1])
+
+        
 class H_Layers():
     """
-    Multilayer structure with helicoidal arrangement
-    Calculate dynamic and propagation matrix for one segment only
+    Multilayer structure with helicoidal arrangement.
+    To speed up the calculation and increase precision, the stack is spilited into
+    repeating units and remainder. The effective transfer matrix of the repeating unit is raised
+    to power N where N is the number of repeats, instead of calculate transfer matrices
+    for each interface.
     """
     def __init__(self, material, pitch, layer_thickness, total_thickness):
         """

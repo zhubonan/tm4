@@ -11,32 +11,33 @@ import math
 def normalise(vector):
     return vector / math.sqrt(np.dot(vector, vector))
     
-def construct_epsilon(epsilon_diag, pitch, layer_t, thickness):
+def construct_epsilon_heli(epsilon_diag, pitch, layer_t, thickness):
     """
     construct the dielectric matrices of all layers
     return a N*3*3 array where N is the number of layers
     """
-    
-    def rot_z(theta):
-        """
-        Return rotation matrix that rotates with repect to z axis with theta degress
-        """
-        rot = np.array([[math.cos(theta), -math.sin(theta), 0],[math.sin(theta), math.cos(theta), 0]
-                        ,[0, 0, 1]])
-        return rot
-
-
-    def rot_angles(pitch, layer_t, thickness):
-        """
-        get a array containing the anlges base on the pitch and thickness given
-        """
-        # get the number of layers 
-        n_l = math.modf(thickness/layer_t)
-        return np.linspace(0,2*np.pi*thickness/pitch,n_l[1])
         
         
     angles = rot_angles(pitch, layer_t, thickness)
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
+    
+def rot_z(theta):
+    """
+    Return rotation matrix that rotates with repect to z axis with theta degress
+    """
+    rot = np.array([[math.cos(theta), -math.sin(theta), 0],[math.sin(theta), math.cos(theta), 0]
+                    ,[0, 0, 1]])
+    return rot
+
+
+def rot_angles(pitch, layer_t, thickness):
+    """
+    get a array containing the anlges base on the pitch and thickness given
+    """
+    # get the number of layers 
+    n_l = math.modf(thickness/layer_t)
+    return np.linspace(0,2*np.pi*thickness/pitch,n_l[1], endpoint = False)
+
     
 def calc_c(e, a, b , u = 1): # Check units
     """

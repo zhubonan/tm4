@@ -74,7 +74,7 @@ class Seg(metaclass = ABCMeta):
         self.b = k[1]
         # set incident light polarisation directions
         self._incident_p = incident_p(k)
-        # assign 4 k vectors for four polarisations
+        # assign 4 k vectors for two polarisations
         k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
         # construct the dynamical matrix of the incident media
         self.D0 = calc_D(self._incident_p, calc_q(k0, self._incident_p))
@@ -138,7 +138,7 @@ class H_Seg(Seg):
         """
         calculate the relative dielectric matrix for all layers
         """
-        self.e = construct_epsilon(self.material(self.wavelength), *self.structure_paras)
+        self.e = construct_epsilon_heli(self.material(self.wavelength), *self.structure_paras)
         # store the number of stacks
         self.N = self.e.shape[0]
 

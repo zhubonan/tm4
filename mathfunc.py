@@ -173,13 +173,21 @@ def incident_p(k):
     k is a 3-vector
     return a array of ps+,ps-,pp+,pp-
     """
+    # For normal incidence, fix the direction of polarisation
+    # p is aligned with x and s is aligned with y
+    # note the p vector is reversed for reflected wave otherwise p,s,k don't form
+    # a right hand set
     if k[0] == 0 and k[1] == 0:
-        return np.array([[1,0,0],[1,0,0],[0,1,0],[0,1,0]])
-    k = np.array(k)
-    ps = normalise(np.cross(k, [k[0],k[1],0]))
-    pp = normalise(np.cross(k,ps))
-    
-    return np.array([ps,ps,pp,pp])
+        return np.array([[0,1,0],[0,1,0],[1,0,0],[-1,0,0]])
+    # calculate the polarisation vectors see lab book for defined geometries
+    # Note the normal vector is [0,0,-1] as the incident wave is traving in postive
+    # z direction
+    si = normalise(np.cross(k, [0,0,-1]))
+    sr = si
+    pi = normalise(np.cross(si, k))
+    pr = normalise(np.cross(sr, [k[0], k[1], -k[2]]))
+    # return a 4x3 array of the four polarisation vectors
+    return np.array([si,sr,pi,pr])
     
 def stack_dot(array):
     """

@@ -8,8 +8,10 @@ Some useful math functions
 import numpy as np
 import math
 
+
 def normalise(vector):
-    return vector / math.sqrt(np.dot(vector, vector))
+    """Return a normalised vector"""
+    return vector / np.linalg.norm(vector)
     
 def construct_epsilon_heli(epsilon_diag, pitch, layer_t, thickness):
     """
@@ -201,6 +203,7 @@ def stack_dot(array):
 def calc_coeff(T):
     """
     Given the transfer matrix calculate the transmission and reflection coefficients
+    Not currently in use
     """
     deno = (T[0,0] * T[2,2] - T[0,2] * T[2,0])
     rss = (T[1,0] * T[2,2] - T[1,2] * T[2,0])/deno
@@ -213,6 +216,32 @@ def calc_coeff(T):
     tpp = T[0,0]/deno
     return {"rss":rss, "rsp":rsp, "rps":rps, "rpp":rpp, "tss":tss, "tsp":tsp,
             "tps":tps, "tpp":tpp}
+            
+def calc_coupling_matrices(T):
+    """
+    Calculate the coupling matrix between reflected/transmitted light and incident light
+    T is the overall transfer matrix of the system. Return a dictionary of coupling matrice
+    Indice are always in the order of s,p or L,R
+    Note p direction is aligned with x and s is aligned with y in the frame that 
+    wave is traveling in the z direction. Refer to geometry guideline in the lab
+    book. 
+    """
+    # Build the coupling matrice between transmitted light and incident/reflected light
+    T_ti = np.array([[T[0,0], T[0,2]], [T[2,0], T[2,2]]])
+    T_tr = np.array([[T[1,0], T[1,2]], [T[3,0], T[3,2]]])
+    # Connect reflected light to incident light using the coupling to transmitted light
+    T_ir = np.linalg.solve(T_ti, T_tr)
+    T_it = np.linalg.inv(T_ti)
+    # Switching to circular polarisation
+    # Coupling matrix between planar and circular polarsiation T_cp * [L,R] = [S,P]
+    T_cp = np.array([[1j, -1j],[1, 1]])*np.sqrt(1/2)
+    T_ir_c = np.linalg.solve(T_cp, T_ir.dot(T_cp))
+    T_it_c = np.linalg.solve(T_cp, T_it.dot(T_cp))
+    
+    coupling_matrices = {"Plane_R":T_ir, "Plane_T":T_it, "Circular_R":T_ir_c, 
+                          "Circular_T":T_it_c}
+    return coupling_matrices
+   
 if __name__ == "__main__":
     
     e = np.diag([2,1,1])

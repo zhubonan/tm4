@@ -10,6 +10,48 @@ import numpy as np
 from mathfunc import *
 from abc import ABCMeta, abstractmethod
 
+class Optical_Properties:
+ 
+    def __init__(self, T_overall):
+        """
+        A conventnt class to store/access optical properties.
+        Initialise the class by pass the overall transfer matrix(including incident
+        and reflected light).
+        """
+        self.c_matrices = calc_coupling_matrices(T_overall)
+        self.update_R()
+        self.update_T()
+        
+    def update_R(self):
+        """
+        Update reflectivities
+        """
+        R_C = np.abs(self.c_matrices["Circular_R"])**2
+        R_P = np.abs(self.c_matrices["Plane_R"])**2
+        self.RCRR = R_C[1,1]
+        self.RCRL = R_C[0,1]
+        self.RCLR = R_C[1,0]
+        self.RCLL = R_C[0,0]
+        self.RPss = R_P[0,0]
+        self.RPsp = R_P[1,0]
+        self.RPps = R_P[0,1]
+        self.RPpp = R_P[1,1]
+        
+    def update_T(self):
+        """
+        Update transmisivities
+        """
+        T_C = np.abs(self.c_matrices["Circular_T"])**2
+        T_P = np.abs(self.c_matrices["Plane_T"])**2
+        self.TCLL = T_C[0,0]
+        self.TCLR = T_C[1,0]
+        self.TCRR = T_C[1,1]
+        self.TCRL = T_C[0,1]
+        self.TPss = T_P[0,0]
+        self.TPsp = T_P[1,0]
+        self.TPps = T_P[0,1]
+        self.TPpp = T_P[1,1]
+        
 class Material:
     """
     An class object that represent any type of anisotropic material
@@ -113,7 +155,7 @@ class Seg(metaclass = ABCMeta):
         self.T_eff = [np.linalg.solve(self.D[i-1],self.D[i].dot(self.P[i])) for i in range(1,self.N)]
         # multiply terms of D[0]P[0] and D[N-1]-1 to the product        
         self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
-        
+    
     def doit(self):
         """
         Do as much calculation as possible
@@ -190,6 +232,7 @@ class H_Layers():
         self._repeat.doit()
         if self._flag_has_reminder:
             self._reminder.doit()
+        
         # calculate the layer part of the total transfer matrix
             T_layers = np.linalg.matrix_power(self._repeat.T_eff_total, 
                        self._N_of_units).dot(self._reminder.T_eff_total)
@@ -201,23 +244,10 @@ class H_Layers():
         self.T_total = np.linalg.solve(self.D0, T_layers.dot(self.D0))
         self.coeff = calc_coeff(self.T_total)
         self.coeff_modulus = self.coeff.copy()
-        
-    def LR_basis(self):
-        """
-        Caculate T_total and coefficients for LR polarised light
-        """
-        a = 1/math.sqrt(2)
-        b = - 1j / math.sqrt(2)
-        M = np.array([[a,0,a,0],[0,a,0,a],[b,0,-b,0],[0,b,0,-b]])
-        N = np.array([[a,0,a,0],[0,0,0,0],[b,0,-b,0],[0,0,0,0]])
-        self.T_total_LR = np.linalg.solve(M, self.T_total.dot(N))
-        self.coeff_LR = calc_coeff(self.T_total_LR)
-        self.coeff_modulus_LR = self.coeff_LR.copy()
-        for i in self.coeff_modulus_LR:
-            self.coeff_modulus_LR[i] = np.abs(self.coeff_modulus_LR[i])**2
+        self.prop = Optical_Properties(self.T_total)
+
     def doit(self):
         self.calc_T()
-        self.LR_basis()
         
 if __name__ == '__main__':
     # self-testing codes

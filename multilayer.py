@@ -7,7 +7,7 @@ class definitions
 from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
-from mathfunc import *
+import mathfunc as mfc
 from abc import ABCMeta, abstractmethod
 
 class Optical_Properties:
@@ -18,7 +18,7 @@ class Optical_Properties:
         Initialise the class by pass the overall transfer matrix(including incident
         and reflected light).
         """
-        self.c_matrices = calc_coupling_matrices(T_overall)
+        self.c_matrices = mfc.calc_coupling_matrices(T_overall)
         self.update_R()
         self.update_T()
         
@@ -61,7 +61,7 @@ class Optical_Properties:
         return
         r_p = self.c_matrices["Plane_r"]
         inc_y = np.sin(theta/180*np.pi)
-        inc_x = np.sqrt(1-y**2)
+        inc_x = np.sqrt(1-inc_y**2)
         ref_y,ref_x = r_p.dot(np.array([inc_y,inc_x]))
         return np.arctan2(ref_y, ref_x)
         
@@ -140,11 +140,11 @@ class Seg(metaclass = ABCMeta):
         self.a = k[0]
         self.b = k[1]
         # set incident light polarisation directions
-        self._incident_p = incident_p(k)
+        self._incident_p = mfc.incident_p(k)
         # assign 4 k vectors for two polarisations
         k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
         # construct the dynamical matrix of the incident media
-        self.D0 = calc_D(self._incident_p, calc_q(k0, self._incident_p))
+        self.D0 = mfc.calc_D(self._incident_p, mfc.calc_q(k0, self._incident_p))
     
     @abstractmethod    
     def update_thickness(self):
@@ -162,10 +162,10 @@ class Seg(metaclass = ABCMeta):
         pass
     
     def update_D(self):
-        self.k = [calc_k(e, self.a, self.b) for e in self.e]
-        self.p = [calc_p(self.e[i], self.k[i]) for i in range(self.N)]
-        self.q = [calc_q(self.k[i], self.p[i]) for i in range(self.N)]
-        self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
+        self.k = [mfc.calc_k(e, self.a, self.b) for e in self.e]
+        self.p = [mfc.calc_p(self.e[i], self.k[i]) for i in range(self.N)]
+        self.q = [mfc.calc_q(self.k[i], self.p[i]) for i in range(self.N)]
+        self.D = np.asarray([mfc.calc_D(self.p[i], self.q[i]) for i in range(self.N)])
         
     def update_P(self):
         self.k = np.asarray(self.k)
@@ -179,7 +179,7 @@ class Seg(metaclass = ABCMeta):
         """
         self.T_eff = [np.linalg.solve(self.D[i-1],self.D[i].dot(self.P[i])) for i in range(1,self.N)]
         # multiply terms of D[0]P[0] and D[N-1]-1 to the product        
-        self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
+        self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(mfc.stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
     
     def doit(self):
         """
@@ -205,7 +205,7 @@ class H_Seg(Seg):
         """
         calculate the relative dielectric matrix for all layers
         """
-        self.e = construct_epsilon_heli(self.material(self.wavelength), *self.structure_paras)
+        self.e = mfc.construct_epsilon_heli(self.material(self.wavelength), *self.structure_paras)
         # store the number of stacks
         self.N = self.e.shape[0]
 
@@ -271,7 +271,7 @@ class H_Layers():
         # Now add dynamic matrix of the incident and exiting medium
         # Assume to be the vacuum for now
         self.T_total = np.linalg.solve(self.D0, T_layers.dot(self.D0))
-        self.coeff = calc_coeff(self.T_total)
+        self.coeff = mfc.calc_coeff(self.T_total)
         self.coeff_modulus = self.coeff.copy()
         self.prop = Optical_Properties(self.T_total)
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     a = [[200,300,500], [1,1.2,1.5]]
     b = [[200,300,500], [1.1,1.3,1.6]]
     c = [[200,300,600], [1,1.5,1.6]]
-    m = U_Material(a,b)
+    m = Uniaxial_Material(a,b)
     l = H_Layers(m, 100, 10, 5009)
     l.set_incidence([0,0,1], 450)
     l.doit()

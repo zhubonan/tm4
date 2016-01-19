@@ -72,7 +72,7 @@ class Material:
     
     def __init__(self, a, b, c, kind = 'quadratic'):
         """
-        Input some known points of the relative dielectric constants with respect to wavelength.
+        Input some known points of the refractive index with respect to wavelength.
         known_e and known_o should be 2 x N array of known values of ne and no.
         """
         self.a , self.b, self.c = np.asarray(a), np.asarray(b), np.asarray(c)
@@ -92,19 +92,31 @@ class Material:
         """
         # construct the dielectric constant tensor
         e = np.diag([self.fa(wavelength), self.fb(wavelength), self.fc(wavelength)]
-        )
+        )**2
         return e
 
     def __call__(self, wavelength):
         return self.e_diag(wavelength)
         
-class U_Material(Material):
+class Uniaxial_Material(Material):
     """
     An sub-class representing an uniaxial material(a!=b=c)
     """
     def __init__(self, e, o, kind = 'quadratic'):
         Material.__init__(self, e,o,o,kind)
 
+class Homogeneous_Nondispersive_Material(Material):
+    
+    def __init__(self,n):
+        self.n = n
+    def e_diag(self, wavelength):
+        return np.diag([self.n,self.n,self.n])**2
+
+class Homogeneous_Dispersive_Material(Material):
+    
+    def __init__(self,n_array):
+        Material.__init__(self, n_array,n_array,n_array, kind= 'quadratic')
+    
 class Seg(metaclass = ABCMeta):
     """
     An abstract class represent a stack of birefringent layers
@@ -202,7 +214,11 @@ class H_Seg(Seg):
         Build the array to represent the thickness data
         """
         self._thickness = np.full(self.e.shape[0], self.structure_paras[1])
-
+        
+    def update_T(self):
+        Seg.update_T(self)
+        self.T_total = np.linalg.solve(self.D0, self.T_eff_total.dot(self.D0))
+        self.prop = Optical_Properties(self.T_total)
         
 class H_Layers():
     """

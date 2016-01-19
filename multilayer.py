@@ -26,8 +26,8 @@ class Optical_Properties:
         """
         Update reflectivities
         """
-        R_C = np.abs(self.c_matrices["Circular_R"])**2
-        R_P = np.abs(self.c_matrices["Plane_R"])**2
+        R_C = np.abs(self.c_matrices["Circular_r"])**2
+        R_P = np.abs(self.c_matrices["Plane_r"])**2
         self.RCRR = R_C[1,1]
         self.RCRL = R_C[0,1]
         self.RCLR = R_C[1,0]
@@ -41,8 +41,8 @@ class Optical_Properties:
         """
         Update transmisivities
         """
-        T_C = np.abs(self.c_matrices["Circular_T"])**2
-        T_P = np.abs(self.c_matrices["Plane_T"])**2
+        T_C = np.abs(self.c_matrices["Circular_r"])**2
+        T_P = np.abs(self.c_matrices["Plane_r"])**2
         self.TCLL = T_C[0,0]
         self.TCLR = T_C[1,0]
         self.TCRR = T_C[1,1]
@@ -51,6 +51,19 @@ class Optical_Properties:
         self.TPsp = T_P[1,0]
         self.TPps = T_P[0,1]
         self.TPpp = T_P[1,1]
+        
+    def calc_rot_of_pol(self, theta):
+        """
+        Calculate the rotation of polarisation for ellipsometery measurement
+        simulation
+        """
+        # Disable the function for now
+        return
+        r_p = self.c_matrices["Plane_r"]
+        inc_y = np.sin(theta/180*np.pi)
+        inc_x = np.sqrt(1-y**2)
+        ref_y,ref_x = r_p.dot(np.array([inc_y,inc_x]))
+        return np.arctan2(ref_y, ref_x)
         
 class Material:
     """

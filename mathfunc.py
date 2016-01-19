@@ -238,8 +238,8 @@ def calc_coupling_matrices(T):
     T_ir_c = np.linalg.solve(T_cp, T_ir.dot(T_cp))
     T_it_c = np.linalg.solve(T_cp, T_it.dot(T_cp))
     
-    coupling_matrices = {"Plane_R":T_ir, "Plane_T":T_it, "Circular_R":T_ir_c, 
-                          "Circular_T":T_it_c}
+    coupling_matrices = {"Plane_r":T_ir, "Plane_t":T_it, "Circular_r":T_ir_c, 
+                          "Circular_t":T_it_c}
     return coupling_matrices
    
 if __name__ == "__main__":

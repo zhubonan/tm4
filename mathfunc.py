@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec  1 12:09:32 2015
-Some useful math functions
 @author: Bonan
 """
 
 import numpy as np
-import math
 
 
 def normalise(vector):
@@ -27,7 +25,7 @@ def rot_z(theta):
     """
     Return rotation matrix that rotates with repect to z axis with theta degress
     """
-    rot = np.array([[math.cos(theta), -math.sin(theta), 0],[math.sin(theta), math.cos(theta), 0]
+    rot = np.array([[np.cos(theta), -np.sin(theta), 0],[np.sin(theta), np.cos(theta), 0]
                     ,[0, 0, 1]])
     return rot
 
@@ -37,7 +35,7 @@ def rot_angles(pitch, layer_t, thickness):
     get a array containing the anlges base on the pitch and thickness given
     """
     # get the number of layers 
-    n_l = math.modf(thickness/layer_t)
+    n_l = np.modf(thickness/layer_t)
     return np.linspace(0,2*np.pi*thickness/pitch,n_l[1], endpoint = False)
 
     

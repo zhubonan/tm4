@@ -15,6 +15,7 @@ a = [[500,300,2000], [1.7,1.7,1.7]]
 b = [[500,300,2000], [1.5,1.5,1.5]]
 m = Uniaxial_Material(a,b)
 l = H_Layers(m, 650,13, 325*5)
+
 incident = [0,0,1]
 #%% calculation routine
 def calc():
@@ -49,8 +50,8 @@ for wavelength in np.linspace(400,900, 100):
 >>>>>>> 2c3f9d29f14f4673e2120dd76c1c91eccc11bcfe
 #%%
 # for ploting the other results
-plt.plot(lbda*1e9, R_RR, label='R_RR_Berreman')
-plt.plot(lbda*1e9, R_th, label='R_theo')
+#plt.plot(lbda*1e9, R_RR, label='R_RR_Berreman')
+#plt.plot(lbda*1e9, R_th, label='R_theo')
 calc()
 plt.plot(lam,rll,label = "L-L Yeh 50dvision")
 l = H_Layers(m, 650,26, 325*5)

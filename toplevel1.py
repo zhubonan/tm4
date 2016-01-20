@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from multilayer import H_Layers,Uniaxial_Material
 
 #%% Initialise the instance object
+<<<<<<< HEAD
 a = [[500,300,2000], [1.7,1.7,1.7]]
 b = [[500,300,2000], [1.5,1.5,1.5]]
 m = Uniaxial_Material(a,b)
@@ -28,6 +29,24 @@ def calc():
         rll.append(l.prop.RCLL)
         lam.append(wavelength)
     return 
+=======
+a = [[200,300,1000], [2,2,2]]
+b = [[200,300,1000], [2.1,2.1,2.1]]
+m = U_Material(a,b)
+l = Layers(m, 600,50,10000)
+incident = [1,1,1]
+#%% calculation routine
+lam = []
+rrr = []
+rll = []
+
+for wavelength in np.linspace(400,900, 100):
+    l.set_incidence(incident, wavelength)
+    l.doit()
+    rrr.append(l.coeff_modulus_LR["rpp"])
+    rll.append(l.coeff_modulus_LR["rss"])
+    lam.append(wavelength)
+>>>>>>> 2c3f9d29f14f4673e2120dd76c1c91eccc11bcfe
 #%%
 # for ploting the other results
 plt.plot(lbda*1e9, R_RR, label='R_RR_Berreman')

@@ -15,15 +15,18 @@ def construct_epsilon_heli(epsilon_diag, pitch, divisions, thickness, handness =
     """
     construct the dielectric matrices of all layers
     return a N*3*3 array where N is the number of layers
+    We define pitch to be the distance such the rotation is 180 degree e.g. apparant
+    period in z direction
     """
-    layerThickness = pitch / divisions
-    nResidual = int(thickness%pitch / layerThickness)
-    newThickness = int(thickness/pitch)*pitch + nResidual * layThickness
-    anglesFullRotation = np.linspace(0, -np.pi*int(thickness/pitch), divisions)
-    anglesResidual = np.linspace(0, -np.pi*(thickness%pitch/pitch), nResidual)    
-    anglesAll = np.append(anglesFullRotation,anglesResidual)
-    return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in anglesAll])
-    
+    if pitch == thickness:
+        angles = np.linspace(0,np.pi, divisions, endpoint = False )
+    elif pitch > thickness:
+        angles = np.linspace(0, np.pi * thickness/pitch, divisions, endpoint = False)
+    else:
+        raise NameError('Need thickness to be smaller than pitch')
+    return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
+
+
 def rot_z(theta):
     """
     Return rotation matrix that rotates with repect to z axis with theta degress

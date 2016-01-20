@@ -30,8 +30,8 @@ def calc():
     return 
 #%%
 # for ploting the other results
-plt.plot(lbda*1e9, R_RR, label='R_RR_Berreman')
-plt.plot(lbda*1e9, R_th, label='R_theo')
+#plt.plot(lbda*1e9, R_RR, label='R_RR_Berreman')
+#plt.plot(lbda*1e9, R_th, label='R_theo')
 calc()
 plt.plot(lam,rll,label = "L-L Yeh 50dvision")
 l = H_Layers(m, 650,26, 325*5)

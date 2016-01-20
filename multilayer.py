@@ -75,6 +75,12 @@ class Material:
         Input some known points of the refractive index with respect to wavelength.
         known_e and known_o should be 2 x N array of known values of ne and no.
         """
+        if type(a) != list and type(a) != np.ndarray:
+            self.fa = lambda x: a
+            self.fb = lambda x: b
+            self.fc = lambda x: c
+            return
+            
         self.a , self.b, self.c = np.asarray(a), np.asarray(b), np.asarray(c)
         self.kind = kind
         self._build_interp()
@@ -196,10 +202,10 @@ class H_Seg(Seg):
     """
     An class object represent a stack of helicoidal arranged layers
     """
-    def __init__(self, material, pitch, layer_thickness, total_thickness):
+    def __init__(self, material, pitch, divisions , total_thickness):
         
         self.material = material
-        self.structure_paras = [pitch, layer_thickness, total_thickness]
+        self.structure_paras = [pitch, divisions , total_thickness]
         
     def update_e(self):
         """

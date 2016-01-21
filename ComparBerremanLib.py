@@ -13,8 +13,10 @@ from multilayer import H_Layers,Uniaxial_Material
 a = [[500,300,2000], [1.7,1.7,1.7]]
 b = [[500,300,2000], [1.5,1.5,1.5]]
 m = Uniaxial_Material(a,b)
-l = H_Layers(m, 650,13, 325*5)
-incident = [0,0,1]
+l = H_Layers(m, 325 ,50, 325*5)
+#set incident angle
+theta = 0
+incident = [np.sin(theta/180*np.pi),0,np.cos(theta/180*np.pi)]
 #%% calculation routine
 def calc():
     global lam,rrr,rll
@@ -34,14 +36,14 @@ def calc():
 #plt.plot(lbda*1e9, R_th, label='R_theo')
 calc()
 plt.plot(lam,rll,label = "L-L Yeh 50dvision")
-l = H_Layers(m, 650,26, 325*5)
+l = H_Layers(m, 325,25, 325*5)
 calc()
 plt.plot(lam,rll,label = "L-L Yeh 25dvision")
-l = H_Layers(m, 650,6, 325*5)
+l = H_Layers(m, 325,100, 325*5)
 calc()
 plt.plot(lam,rll,label = "L-L Yeh ~100 dvision")
 plt.xlabel("Wavelength /nm")
 plt.ylabel("Reflectivity")
 plt.legend(loc='center right')
 plt.title(str(incident)+ "  incidence")
-
+plt.show()

@@ -149,7 +149,7 @@ def construct_D(e, a, b, omega, u = 1):
     
 
 
-def null(A, eps=1e-15):
+def null(A, eps=1e-14):
     """
     Return the null vector of matrix A, usefull for calculate the p vector with
     known k vector

@@ -17,7 +17,7 @@ no = mean - birfringence/2
 ne = mean + birfringence/2
 #Initialise the system
 mtl = Uniaxial_Material(ne,no)
-layer = H_Layers(mtl, 300, 10, 1400)
+layer = H_Layers(mtl, 150, 10, 1400)
 rrr = []
 #Iterate through frequencies
 for wavelength in np.linspace(400,750,100):

@@ -8,6 +8,8 @@ from scipy.interpolate import interp1d
 import scipy as sp
 import numpy as np
 import mathfuncNew as mfc
+import warnings
+
 #%%
 # Propagator for a homogeneous slab of material...
 # need to stop using deprecated scipy functions
@@ -25,7 +27,7 @@ class Propagator():
         The default method is Pade. It is the default method in scipy libray for 
         matrix exponential
         """
-        self.method = 'Pade'
+        self.method = method
         
     def __call__(self, Delta, h, k0, q=None):
         """
@@ -98,7 +100,10 @@ class HomogeneousDispersiveMaterial(Material):
     
     def __init__(self,n_array):
         Material.__init__(self, n_array,n_array,n_array, kind= 'quadratic')
+#%%HalfSpace class
 
+class HalfSpace:
+    
 #%% Defining Structure class
 
 class Structure():
@@ -121,18 +126,21 @@ class Structure():
         """A method a build the propagator matrices"""
         raise NotImplementedError
         
-    def constructPartialTransfer():
+    def gettPartialTransfer():
         """A method to build the partial transfer matrix for the layer"""
         raise NotImplementedError
-    def setPropagater(self, method = 'eig'):
-        return
 #        self.propagator = 
-        
+
+class HybridStructure(Structure):
+    """
+    A structure representing a combination of other structures
+    """
+
 class HeliCoidalStructure(Structure):
     """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
-    wl = None #dont specify wavelength initially
+    #wl = None #dont specify wavelength initially
     Kx = None # reduced wave vector Kx = kx/k0
     propagtor = Propagator() #default propagator
     
@@ -145,8 +153,8 @@ class HeliCoidalStructure(Structure):
         self.setHandness(handness) 
         self.anglesRepeating = np.linspace(0, np.pi * self._handness, d, 
                                            endpoint = False)
-        self.nOfReapting = int(t/d)
-        remain = np.remainder(t, d)
+        self.nOfReapting = int(t/pitch)
+        remain = np.remainder(t, pitch)
         remainDivisions = int(remain/self.divisionThickness)
         #discard the overflowing bits
         remain = remainDivisions * self.divisionThickness
@@ -155,10 +163,6 @@ class HeliCoidalStructure(Structure):
             self.anglesRemaining = np.linspace(0, remain/pitch*np.pi*self._handness,
                                                remainDivisions, endpoint = False)
         self.material = material
-    def setMethod(self, name = 'eig'):
-        """set the propagator"""
-        if name == 'eig':
-            self.propagtor = mfc.eig
         
     def setHandness(self, H):
         
@@ -168,20 +172,41 @@ class HeliCoidalStructure(Structure):
             self._handness = 1
         else: raise RuntimeError('Handness need to be either left or right')
         
-    def constructEpsilon(self):
+    def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
-        self.epsilonRepeating = [np.dot(mfc.rotZ(theta),self.material(self.wl)) for 
+        self.wl = wl
+        self.epsilonRepeating = [np.dot(mfc.rotZ(theta),self.material(wl)) for 
         theta in self.anglesRepeating]
-        self.epsilonRemaining = [np.dot(mfc.rotZ(theta),self.material(self.wl)) for 
-        theta in self.anglesRemaining]
+        if self._hasRemainder:
+            self.epsilonRemaining = [np.dot(mfc.rotZ(theta),self.material(wl)) for 
+            theta in self.anglesRemaining]
         
     def constructDelta(self):
         """Build the Delta matrix in Berreman's formulation"""
         self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
-        self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
+        if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
         
-    def constructPropagtion(self):
-        """Build the propagation matrix"""
-        #self.propRepeating = [self.propagtor()]
-        
-        
+    def getPartialTransfer(self, wl, q = None):
+        """Build the partial transfer matrix"""
+        #Constructed needed matrices
+        if self.Kx == None:
+            self.Kx = 1
+            warnings.warn('Kx not defined, assuming normal incidence')
+            
+        self.constructEpsilon(wl)
+        self.constructDelta()
+        #Get propagation matrices
+        d= self.divisionThickness
+        k0 = 2*np.pi/wl
+        PMatricesRepeating = [self.propagtor(delta, d, k0, q) for delta
+                              in self.deltaRepeating]
+        if self._hasRemainder:
+            PMatricesRemaining = [self.propagtor(delta, d, k0, q) for delta in 
+                                  self.deltaRemaining]
+        #Calculate the overall partial transfer matrix
+        TRepeat = mfc.stack_dot(PMatricesRepeating)
+        if self._hasRemainder:
+            TRemain = mfc.stack_dot(PMatricesRemaining)
+        else: TRemain = np.identity(3) 
+        self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
+        return self.partialTransfer.copy()

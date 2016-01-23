@@ -19,9 +19,9 @@ def construct_epsilon_heli(epsilon_diag, pitch, divisions, thickness, handness =
     period in z direction
     """
     if pitch == thickness:
-        angles = np.linspace(0,np.pi, divisions, endpoint = False )
+        angles = np.linspace(0,-np.pi, divisions, endpoint = False )
     elif pitch > thickness:
-        angles = np.linspace(0, np.pi * thickness/pitch, divisions, endpoint = False)
+        angles = np.linspace(0, -np.pi * thickness/pitch, divisions, endpoint = False)
     else:
         raise NameError('Need thickness to be smaller than pitch')
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])

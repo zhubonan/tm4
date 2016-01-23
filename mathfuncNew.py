@@ -20,10 +20,18 @@ def rotZ(theta):
     rot = np.array([[np.cos(theta), -np.sin(theta), 0],[np.sin(theta), np.cos(theta), 0]
                     ,[0, 0, 1]])
     return rot
+
+def rotedEpsilon(Epsilon, theta):
+    """Return an epsilon of an material rotated by theta degrees"""
+    return rotZ(theta).dot(Epsilon.dot(rotZ(-theta)))
     
-def stack_dot(array):
+    
+def stackDot(array):
     """
-    Take the matrix product along 1st axis
+    Calculate the overall transfer matrix from a stack of arrays in the increasing
+    z direction. e.g. stack start at z=0
+    Psi(zb) = P_(zb, z_{N-1}) * ... * P(z1,zf) * Psi(zf)
+                = P(zb,zf) * Psi(zf)
     """
     product = np.identity(len(array[0]))
     for i in array:
@@ -48,3 +56,5 @@ def buildDeltaMatrix(eps, Kx):
          [eps[0,0] - eps[0,2] * eps[2,0] / eps[2,2],
           eps[0,1] - eps[0,2] * eps[2,1] / eps[2,2],
           0, -Kx * eps[0,2] / eps[2,2]]])
+          
+          

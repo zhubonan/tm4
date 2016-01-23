@@ -9,6 +9,75 @@ import scipy as sp
 import numpy as np
 import mathfuncNew as mfc
 import warnings
+#%%
+class OpticalProperties:
+    # Transformation matrix from the (s,p) basis to the (L,R) basis...
+    C = 1 / np.sqrt(2) * np.array([[1, 1], [1j, -1j]])
+    D = 1 / np.sqrt(2) * np.array([[1, 1], [-1j, 1j]])  #Transition from circular to plane for reflected wave
+    TM = np.array([C,C])
+    invC = np.array(sp.linalg.inv(C))
+    invD = np.array(sp.linalg.inv(D))
+    invTM = np.array([invD, invC])    
+    def __init__(self, TOverall):
+        """
+        A conventnt class to store/access optical properties.
+        Initialise the class by pass the overall transfer matrix(including incident
+        and reflected light).
+        """
+        self.J = self.getJones(TOverall)
+        self.Jc = self.circularJones()
+        self.RP = self.J[0].conj()*self.J[0]
+        self.RC = self.Jc[0].conj()*self.Jc[0]
+        
+    def getJones(self, T):
+        """Returns the Jones matrices.
+        
+        Returns : tuple (T_ri, T_ti)
+
+        T_ri is the Jones matrix in reflexion : [[r_pp, r_ps],
+                                                 [r_sp, r_ss]]
+
+        T_ti is the Jones matrix in transmission : [[t_pp, t_ps],
+                                                    [t_sp, t_ss]]
+       
+        Naming convention (Fujiwara, p. 220):
+        't_ps' : transmitted p component for a s incident wave
+        't_ss' : transmitted s component for a s incident wave
+        ...
+
+        Note: If all materials are isotropic, r_ps = r_sp = t_sp = t_ps = 0
+
+        See also: 
+        * extractCoefficient() to extract the desired coefficients.
+        * circularJones() for circular polarization basis
+        """
+        # Extraction of T_it out of T. "2::-2" means integers {2,0}.
+        T_it = T[2::-2,2::-2]
+        T_ti = sp.linalg.inv(T_it)
+        
+        # Extraction of T_rt out of T. "3::-2" means integers {3,1}.
+        T_rt = T[3::-2,2::-2]
+        
+        # Then we have T_ri = T_rt * T_ti
+        T_ri = np.dot(T_rt, T_ti)
+        return (T_ri, T_ti)        
+
+    def circularJones(self):
+        """Returns the Jones matrices for circular polarization basis
+        
+        'Jones' : pair of (Jr, Jt) reflexion and transmission Jones matrices
+                  may be an array of shape [...,2,2,2]
+       
+        The Jones matrices for circular polarization are Jr^c = D⁻¹ Jr C  and
+        Jt^c = C⁻¹ Jt C.
+    
+        Returns : array of the same shape.
+        """
+        J = self.J
+        Jc_ri = np.linalg.solve(self.D, J[0].dot(self.C))
+        Jc_ti = np.linalg.solve(self.C, J[1].dot(self.C))
+        return (Jc_ri, Jc_ti)     
+    
 
 #%%
 # Propagator for a homogeneous slab of material...
@@ -18,7 +87,7 @@ class Propagator():
      A propagator class for easy access 
     """
     
-    def __init__(self, method = 'Pade'):
+    def __init__(self, method = 'Pade', inv = True):
         """the value of 'method':
         "linear" -> first order approximation of exp()
         "Padé"   -> Padé approximation of exp()
@@ -28,7 +97,10 @@ class Propagator():
         matrix exponential
         """
         self.method = method
-        
+        if inv == True:
+            self._i = -1
+        else:
+            self._i = 1
     def __call__(self, Delta, h, k0, q=None):
         """
         'Delta' : Delta matrix of the homogeneous material
@@ -37,10 +109,10 @@ class Propagator():
         'q' : order of the approximation method, if useful
         Returns a ndarry of the propagator for the division
         """
-        if   self.method == "linear":    return np.identity(4) + 1j * h * k0 * Delta
-        elif self.method == "Pade":      return sp.linalg.expm(1j * h * k0 * Delta, q)
-        elif self.method == "Taylor":    return sp.linalg.expm3(1j * h * k0 * Delta, q+1)
-        elif self.method == "eig":       return sp.linalg.expm2(1j * h * k0 * Delta)
+        if   self.method == "linear":    return np.identity(4) + 1j * h * k0 * Delta * self._i
+        elif self.method == "Pade":      return sp.linalg.expm(1j * h * k0 * Delta * self._i, q)
+        elif self.method == "Taylor":    return sp.linalg.expm3(1j * h * k0 * Delta * self._i, q+1)
+        elif self.method == "eig":       return sp.linalg.expm2(1j * h * k0 * Delta* self._i)
             
 #%% Defining Material Classes
 class Material:
@@ -277,7 +349,7 @@ class Structure():
         """A method a build the propagator matrices"""
         raise NotImplementedError
         
-    def gettPartialTransfer():
+    def getPartialTransfer():
         """A method to build the partial transfer matrix for the layer"""
         raise NotImplementedError
 #        self.propagator = 
@@ -286,20 +358,40 @@ class Structure():
         self.Kx = Kx
     def setWl(self, wl):
         self.wl = wl
+    def setKx(self, Kx):
+        
+        self.Kx = Kx
         
 class HybridStructure(Structure):
     """
     A structure representing a combination of other structures
     """
+class HomogeneousStructure(Structure):
 
+    propagtor = Propagator() #default propagator
+    Phi = 0 #Set the angle phy to be zero in the start
+    Kx = None
+    
+    def __init__(self, thickness, material = None):
+        self.material = material
+        self.thickness = thickness
+    def constructDelta(self):
+        self.delta = mfc.buildDeltaMatrix(self.material.getTensor(self.wl), self.Kx)
+    
+    def getPartialTransfer(self):
+        self.constructDelta()
+        self.partialTransfer = self.propagtor(self.delta, self.thickness, 2*np.pi/ self.wl)
+        return self.partialTransfer
+        
 class HeliCoidalStructure(Structure):
     """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
     #wl = None #dont specify wavelength initially
-    propagtor = Propagator() #default propagator
+    propagtor = Propagator(method = 'eig') #default propagator
     Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
+    
     def __init__(self, material, pitch, d, t, handness = 'left'):
         """
         Initialise the structure by passing material pitch, division per 
@@ -307,7 +399,7 @@ class HeliCoidalStructure(Structure):
         """
         self.divisionThickness = pitch / d
         self.setHandness(handness) 
-        self.anglesRepeating = np.linspace(0, 2*np.pi * self._handness, d, 
+        self.anglesRepeating = np.linspace(0, np.pi * self._handness, d, 
                                            endpoint = False)
         self.nOfReapting = int(t/pitch)
         remain = np.remainder(t, pitch)
@@ -316,16 +408,13 @@ class HeliCoidalStructure(Structure):
         remain = remainDivisions * self.divisionThickness
         if remain != 0:
             self._hasRemainder = True
-            self.anglesRemaining = np.linspace(0, 2 * remain/pitch*np.pi*self._handness,
+            self.anglesRemaining = np.linspace(0, remain/pitch*np.pi*self._handness,
                                                remainDivisions, endpoint = False)
         self.material = material
         self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d ,\
         "Handness":handness, "TotalThickness": remain + self.nOfReapting * pitch}
                      
-    def setKx(self, Kx):
-        
-        self.Kx = Kx
-        
+
     def setHandness(self, H):
         
         if H == 'left':
@@ -337,11 +426,10 @@ class HeliCoidalStructure(Structure):
     def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
         self.wl = wl
-        self.epsilonRepeating = [np.dot(mfc.rotZ(theta),self.material.getTensor(wl)) for 
-        theta in self.anglesRepeating]
+        epsilon = self.material.getTensor(wl)
+        self.epsilonRepeating = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRepeating]
         if self._hasRemainder:
-            self.epsilonRemaining = [np.dot(mfc.rotZ(theta),self.material.getTensor(wl)) for 
-            theta in self.anglesRemaining]
+            self.epsilonRemaining = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRemaining]
         
     def constructDelta(self):
         """Build the Delta matrix in Berreman's formulation"""
@@ -349,7 +437,9 @@ class HeliCoidalStructure(Structure):
         if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
         
     def getPartialTransfer(self, q = None, updateEpsilon = True):
-        """Build the partial transfer matrix, need to input wl and q"""
+        """
+        Build the partial transfer matrix, need to input wl and q
+        """
         #Constructed needed matrices
 
         #Update the dielectric tensor stack. Can be supressed if needed e.g. at
@@ -363,13 +453,16 @@ class HeliCoidalStructure(Structure):
         k0 = 2*np.pi/self.wl
         PMatricesRepeating = [self.propagtor(delta, d, k0, q) for delta
                               in self.deltaRepeating]
+        self.P = PMatricesRepeating
+        
         if self._hasRemainder:
             PMatricesRemaining = [self.propagtor(delta, d, k0, q) for delta in 
                                   self.deltaRemaining]
         #Calculate the overall partial transfer matrix
-        TRepeat = mfc.stack_dot(PMatricesRepeating)
+        TRepeat = mfc.stackDot(PMatricesRepeating)
+        self.PT = TRepeat
         if self._hasRemainder:
-            TRemain = mfc.stack_dot(PMatricesRemaining)
+            TRemain = mfc.stackDot(PMatricesRemaining)
         else: TRemain = np.identity(4) 
         self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
         self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
@@ -421,13 +514,14 @@ class OptSystem():
             s.setWl(self.wl)
             s.getPartialTransfer()
             # Apply matrix products
-            overallPartial = overallPartial.dot(s.getPartialTransfer(self.wl))
+            overallPartial = overallPartial.dot(s.getPartialTransfer())
         self.overallPartial = overallPartial  
     def getTransferMatrix(self):
         
         frontinv = self.frontHalfSpace.getTransitionMatrix(self.Kx,self.wl, inv = True)
         back = self.backHalfSpace.getTransitionMatrix(self.Kx, self.wl)
         self.transferMatrix = frontinv.dot(self.overallPartial.dot(back))
+        self.prop = OpticalProperties(self.transferMatrix)
         return self.transferMatrix
     
     def getSubStructureInfo(self):
@@ -436,21 +530,32 @@ class OptSystem():
             index += 1
             print("Layer " + str(index), s.info)
             
+
+ 
 #%% Self-testing Code bock
 
-if __name__ == "__main___":
+if __name__ == "__main__":
 #%%    
+    import matplotlib.pyplot as pl
+    
     air = HomogeneousNondispersiveMaterial(1)
+    glass = HomogeneousNondispersiveMaterial(1.5)
     celloluse = UniaxialMaterial(1.60,1.55)
-    helix = HeliCoidalStructure(celloluse, 100, 10, 200)
-    helixDouble = HeliCoidalStructure(celloluse, 100,10,400)
+    helix = HeliCoidalStructure(celloluse, 300, 30, 300)
+    helixDouble = HeliCoidalStructure(celloluse, 100,10,200)
+    slab = HomogeneousStructure(250 , glass)
     setup = OptSystem()
     front = IsotropicHalfSpace(air)
     back = IsotropicHalfSpace(air)
     setup.setHalfSpaces(front,back)
     #%%
-    setup.setStructure([helixDouble])
-    setup.setIncidence(500,0,0)
-    setup.updateStructurePartialTransfer()
-    print(setup.getTransferMatrix())
-    setup.getSubStructureInfo()
+    setup.setStructure([helix])
+    result = []
+    wavelength = np.linspace(200,1000,100)
+    for wl in wavelength:
+        setup.setIncidence(wl)
+        setup.updateStructurePartialTransfer()
+        setup.getTransferMatrix()
+        result.append(setup.prop.RC[0,0])
+    pl.plot(wavelength,result)
+    

@@ -69,7 +69,7 @@ class Material:
         self.fb = interp1d(self.b[0], self.b[1], self.kind)
         self.fc = interp1d(self.c[0], self.c[1], self.kind)
         
-    def e_diag(self, wl):
+    def getTensor(self, wl):
         """
         Return the calcuated dielectric tensor at given wave length.
         Optical axis is along the x direction by default
@@ -79,8 +79,6 @@ class Material:
         )**2
         return e
 
-    def __call__(self, wavelength):
-        return self.e_diag(wavelength)
         
 class UniaxialMaterial(Material):
     """
@@ -89,20 +87,173 @@ class UniaxialMaterial(Material):
     def __init__(self, e, o, kind = 'quadratic'):
         Material.__init__(self, e,o,o,kind)
 
-class HomogeneousNondispersive_Material(Material):
+class HomogeneousNondispersiveMaterial(Material):
     
     def __init__(self,n):
         self.n = n
-    def e_diag(self, wavelength):
+    def getTensor(self, wavelength):
         return np.diag([self.n,self.n,self.n])**2
-
+        
+    def getRefractiveIndex(self, wavelength):
+        return self.n
+        
 class HomogeneousDispersiveMaterial(Material):
     
     def __init__(self,n_array):
         Material.__init__(self, n_array,n_array,n_array, kind= 'quadratic')
-#%%HalfSpace class
+    
+    def getRefractiveIndex(self, wavelength):
+        return self.fa(wavelength)
+        
+        
+#%%HalfSpace class used in the front and back layer
 
 class HalfSpace:
+    """Homogeneous half-space with arbitrary permittivity.
+    
+    A HalfSpace must provide this method:
+    * getTransitionMatrix(k0, Kx) : return transition matrix
+    
+    """
+
+    material = None     # Material object
+
+    def __init__(self, material=None):
+        """Create a homogeneous half-space of the given material."""
+        self.setMaterial(material)
+
+    def setMaterial(self, material):
+        """Defines the material for this half-space"""
+        self.material = material
+
+    def getTransitionMatrix(self, Kx, wl):
+        """Returns transition matrix L.
+        
+        'Kx' : reduced wavenumber in the x direction, Kx = kx/k0
+        'k0' : wavenumber in vacuum, k0 = ω/c
+
+        Sort eigenvectors of the Delta matrix according to propagation
+        direction first, then according to $y$ component. 
+
+        Returns eigenvectors ordered like (s+,s-,p+,p-)
+        """
+        epsilon = self.material.getTensor(wl)
+        Delta = mfc.buildDeltaMatrix(epsilon, Kx)
+        q, Psi = sp.linalg.eig(Delta)
+
+        # Sort according to z propagation direction, highest Re(q) first
+        i = np.argsort(-np.real(q))
+        q, Psi = q[i], Psi[:,i]     # Result should be (+,+,-,-)
+        # For each direction, sort according to Ey component, highest Ey first
+        i1 = np.argsort(-np.abs(Psi[1,:2]))
+        i2 = 2 + np.argsort(-np.abs(Psi[1,2:]))
+        i = np.hstack((i1,i2))   # Result should be (s+,p+,s-,p-)
+        # Reorder
+        i[[1,2]] = i[[2,1]]
+        q, Psi = q[i], Psi[:,i]     # Result should be(s+,s-,p+,p-)
+
+        # Adjust Ey in ℝ⁺ for 's', and Ex in ℝ⁺ for 'p'
+        E = np.hstack((Psi[1,:2], Psi[0,2:]))
+        nE = np.abs(E)
+        c = np.ones_like(E)
+        i = (nE != 0.0)
+        c[i] = E[i]/nE[i]
+        Psi = Psi * c
+        # Normalize so that Ey = c1 + c2, analog to Ey = Eis + Ers
+        # For an isotropic half-space, this should return the same matrix 
+        # as IsotropicHalfSpace
+        c = Psi[1,0] + Psi[1,1]
+        if abs(c) == 0:
+            c = 1.
+        Psi = 2 * Psi / c
+        return Psi
+
+class IsotropicHalfSpace(HalfSpace):
+    """Homogeneous Isotropic HalfSpace.
+ 
+    * Provides transition matrix L and the inverse.
+    
+      Can be equally used for the front half-space (Theta = Thetai) or for the back 
+      half-space (Theta = Thetat).
+
+    * Provides relations between angle Theta and reduced wave vector Kx.
+
+      'Theta' is the angle of the plane wave traveling to the right (angle measured
+      with respect to z axis and oriented by y). '-Theta' is the angle of the wave 
+      traveling to the left.
+    """
+    
+    def get_Kx_from_Theta(self, Theta, wl):
+        """Returns the value of Kx.
+        
+        'Phi' : angle of the wave traveling to the right (radians)
+        'k0' : wavenumber in vacuum
+
+        kx = n k0 sin(Theta) : Real and constant throughout the structure. 
+                           If n ∈ ℂ, then Theta ∈ ℂ
+        Kx = kx/k0 = n sin(Theta) : Reduced wavenumber.
+        """
+        n = self.material.getRefractiveIndex(wl)
+        Kx = n * np.sin(Theta)
+        return Kx
+
+    def get_Kz_from_Kx(self, Kx, wl):
+        """Returns the value of Kz in the half-space, function of Kx
+        
+        'Kx' : Reduced wavenumber,      Kx = kx/k0 = n sin(Theta)
+        'k0' : wavenumber in vacuum,    kx = n k0 sin(Theta)
+
+        Returns : reduced wave number Kz = kz/k0
+        """
+        # Not vectorized. Could be? 
+        # Test type(Kz2)
+        n = self.material.getRefractiveIndex(wl)
+        Kz2 = n**2 - Kx**2
+        return np.sqrt(complex(Kz2))
+
+    def get_Theta_from_Kx(self, Kx, wl):
+        """Returns the value of angle Phi according to the value of Kx.
+        
+        'Kx' : Reduced wavenumber,      Kx = kx/k0 = n sin(Theta)
+        'wkl' : wavelength,    kx = n k0 sin(Theta)
+
+        Returns : angle Theta in radians.
+        """
+        # May be vectorized when I have time?
+        n = self.material.getRefractiveIndex(wl)
+        sin_Phi = Kx/n
+        if abs(sin_Phi) > 1:
+            sin_Phi = complex(sin_Phi)
+        Phi = np.arcsin(sin_Phi)
+        return Phi
+
+    def getTransitionMatrix(self, Kx, wl, inv=False):
+        """Returns transition matrix L.
+        
+        'Kx' : Reduced wavenumber
+        'k0' : wavenumber in vacuum
+        'inv' : if True, returns inverse transition matrix L^-1
+
+        Returns : transition matrix L
+        """
+        n = self.material.getRefractiveIndex(wl)
+        
+        sin_Theta = Kx/n
+        if abs(sin_Theta) > 1:
+            sin_Theta = complex(sin_Theta)
+        cos_Theta = np.sqrt(1 - sin_Theta**2)
+        if inv:
+            return 0.5 * np.array( 
+                    [[ 0        , 1, -1/(n*cos_Theta),  0   ],
+                     [ 0        , 1,  1/(n*cos_Theta),  0   ],
+                     [ 1/cos_Theta, 0,  0            ,  1/n ],
+                     [ 1/cos_Theta, 0,  0            , -1/n ]])
+        else:
+            return np.array( 
+                    [[0         , 0        , cos_Theta, cos_Theta],
+                     [1         , 1        , 0      , 0      ],
+                     [-n*cos_Theta, n*cos_Theta, 0      , 0      ],
+                     [0         , 0        , n      , -n     ]])
     
 #%% Defining Structure class
 
@@ -130,7 +281,12 @@ class Structure():
         """A method to build the partial transfer matrix for the layer"""
         raise NotImplementedError
 #        self.propagator = 
-
+    def setKx(self, Kx):
+        
+        self.Kx = Kx
+    def setWl(self, wl):
+        self.wl = wl
+        
 class HybridStructure(Structure):
     """
     A structure representing a combination of other structures
@@ -141,9 +297,9 @@ class HeliCoidalStructure(Structure):
     
     _hasRemainder = False
     #wl = None #dont specify wavelength initially
-    Kx = None # reduced wave vector Kx = kx/k0
     propagtor = Propagator() #default propagator
-    
+    Phi = 0 #Set the angle phy to be zero in the start
+    Kx = None
     def __init__(self, material, pitch, d, t, handness = 'left'):
         """
         Initialise the structure by passing material pitch, division per 
@@ -151,18 +307,24 @@ class HeliCoidalStructure(Structure):
         """
         self.divisionThickness = pitch / d
         self.setHandness(handness) 
-        self.anglesRepeating = np.linspace(0, np.pi * self._handness, d, 
+        self.anglesRepeating = np.linspace(0, 2*np.pi * self._handness, d, 
                                            endpoint = False)
         self.nOfReapting = int(t/pitch)
         remain = np.remainder(t, pitch)
         remainDivisions = int(remain/self.divisionThickness)
-        #discard the overflowing bits
+        #discard the overflowing parts
         remain = remainDivisions * self.divisionThickness
         if remain != 0:
             self._hasRemainder = True
-            self.anglesRemaining = np.linspace(0, remain/pitch*np.pi*self._handness,
+            self.anglesRemaining = np.linspace(0, 2 * remain/pitch*np.pi*self._handness,
                                                remainDivisions, endpoint = False)
         self.material = material
+        self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d ,\
+        "Handness":handness, "TotalThickness": remain + self.nOfReapting * pitch}
+                     
+    def setKx(self, Kx):
+        
+        self.Kx = Kx
         
     def setHandness(self, H):
         
@@ -175,10 +337,10 @@ class HeliCoidalStructure(Structure):
     def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
         self.wl = wl
-        self.epsilonRepeating = [np.dot(mfc.rotZ(theta),self.material(wl)) for 
+        self.epsilonRepeating = [np.dot(mfc.rotZ(theta),self.material.getTensor(wl)) for 
         theta in self.anglesRepeating]
         if self._hasRemainder:
-            self.epsilonRemaining = [np.dot(mfc.rotZ(theta),self.material(wl)) for 
+            self.epsilonRemaining = [np.dot(mfc.rotZ(theta),self.material.getTensor(wl)) for 
             theta in self.anglesRemaining]
         
     def constructDelta(self):
@@ -186,18 +348,19 @@ class HeliCoidalStructure(Structure):
         self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
         if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
         
-    def getPartialTransfer(self, wl, q = None):
-        """Build the partial transfer matrix"""
+    def getPartialTransfer(self, q = None, updateEpsilon = True):
+        """Build the partial transfer matrix, need to input wl and q"""
         #Constructed needed matrices
-        if self.Kx == None:
-            self.Kx = 1
-            warnings.warn('Kx not defined, assuming normal incidence')
-            
-        self.constructEpsilon(wl)
+
+        #Update the dielectric tensor stack. Can be supressed if needed e.g. at
+        # a different psy angle
+        if updateEpsilon:    
+            self.constructEpsilon(self.wl)
         self.constructDelta()
-        #Get propagation matrices
+        #Get propagation matrices, require devision thickness the wl has the same
+        #unit. This effectively scales the problem
         d= self.divisionThickness
-        k0 = 2*np.pi/wl
+        k0 = 2*np.pi/self.wl
         PMatricesRepeating = [self.propagtor(delta, d, k0, q) for delta
                               in self.deltaRepeating]
         if self._hasRemainder:
@@ -207,6 +370,87 @@ class HeliCoidalStructure(Structure):
         TRepeat = mfc.stack_dot(PMatricesRepeating)
         if self._hasRemainder:
             TRemain = mfc.stack_dot(PMatricesRemaining)
-        else: TRemain = np.identity(3) 
+        else: TRemain = np.identity(4) 
         self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
+        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
         return self.partialTransfer.copy()
+    
+
+#%% OptSystem Class definition
+
+class OptSystem():
+    """
+    A class that represent a full set up. Contains multiple structures and front/
+    back half-space. Optical properties should be extracted from a full system
+    """
+    # Attributes
+    # wl: wavelength, Theta: Incident angle, Phi:Azimuthal angle
+    wl, Theta, Phi= None, None, None
+
+    
+    def setStructure(self, strucList):
+        """Set the Stucture of the System"""
+        self.structures = strucList
+        
+    def setFrontHalfSpcae(self, frontHalf):
+        
+        self.frontHalfSpace = frontHalf
+        
+    def setBackHalfSpace(self, backHalf):
+        
+        self.backHalfSpace = backHalf
+        
+    def setHalfSpaces(self, front, back):
+        
+        self.setFrontHalfSpcae(front)
+        self.setBackHalfSpace(back)
+    def setIncidence(self, wl, Theta =0, Phi = 0):
+        """Set the incidence conditions"""
+        self.wl = wl
+        # Calculate Kx from the property of front half-space, Kx is then conserved
+        # throughout the whole calculation
+        self.Kx = self.frontHalfSpace.get_Kx_from_Theta(Theta, self.wl)
+        self.Theta = Theta
+        self.Phi = Phi
+        
+    def updateStructurePartialTransfer(self):
+        
+        overallPartial = np.identity(4)
+        for s in self.structures:
+            s.setKx(self.Kx)
+            s.setWl(self.wl)
+            s.getPartialTransfer()
+            # Apply matrix products
+            overallPartial = overallPartial.dot(s.getPartialTransfer(self.wl))
+        self.overallPartial = overallPartial  
+    def getTransferMatrix(self):
+        
+        frontinv = self.frontHalfSpace.getTransitionMatrix(self.Kx,self.wl, inv = True)
+        back = self.backHalfSpace.getTransitionMatrix(self.Kx, self.wl)
+        self.transferMatrix = frontinv.dot(self.overallPartial.dot(back))
+        return self.transferMatrix
+    
+    def getSubStructureInfo(self):
+        index = 0
+        for s in self.structures:
+            index += 1
+            print("Layer " + str(index), s.info)
+            
+#%% Self-testing Code bock
+
+if __name__ == "__main___":
+#%%    
+    air = HomogeneousNondispersiveMaterial(1)
+    celloluse = UniaxialMaterial(1.60,1.55)
+    helix = HeliCoidalStructure(celloluse, 100, 10, 200)
+    helixDouble = HeliCoidalStructure(celloluse, 100,10,400)
+    setup = OptSystem()
+    front = IsotropicHalfSpace(air)
+    back = IsotropicHalfSpace(air)
+    setup.setHalfSpaces(front,back)
+    #%%
+    setup.setStructure([helixDouble])
+    setup.setIncidence(500,0,0)
+    setup.updateStructurePartialTransfer()
+    print(setup.getTransferMatrix())
+    setup.getSubStructureInfo()

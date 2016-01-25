@@ -532,7 +532,9 @@ class OptSystem():
             
 
  
-#%% Self-testing Code bock
+#%%Some staff for convenience
+air = HomogeneousNondispersiveMaterial(1)
+airHalfSpace = IsotropicHalfSpace(air)
 
 if __name__ == "__main__":
 #%%    

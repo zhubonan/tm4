@@ -11,18 +11,20 @@ import numpy as np
 import matplotlib.pyplot as pl
 from multilayer import Uniaxial_Material, H_Layers
 #Set refractie index
-mean = 1.555
+mean = 1.555+0.01j
 birfringence = 0.062
 no = mean - birfringence/2
 ne = mean + birfringence/2
 #Initialise the system
 mtl = Uniaxial_Material(ne,no)
-layer = H_Layers(mtl, 150, 10, 1400)
-rrr = []
+layer = H_Layers(mtl, 180, 10, 1400)
 #Iterate through frequencies
-for wavelength in np.linspace(400,750,100):
-    layer.set_incidence([0,0,1], wavelength)
-    layer.doit()
-    rrr.append(layer.prop.RCRR)
-pl.cla()
-pl.plot(np.linspace(400,750,100), rrr)
+for angle in [5,10,20]:
+    rrr = []
+    theta = angle/180*np.pi
+    for wavelength in np.linspace(400,750,100):
+        layer.set_incidence([np.sin(theta),0,np.cos(theta)], wavelength)
+        layer.doit()
+        rrr.append(layer.prop.RCRR)
+    pl.plot(np.linspace(400,750,100), rrr, label = str(angle)+"degrees R")
+pl.legend()

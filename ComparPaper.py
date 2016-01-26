@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 from multilayer import Uniaxial_Material, H_Layers
 #Set refractie index
-mean = 1.555+0.01j
+mean = 1.555
 birfringence = 0.062
 no = mean - birfringence/2
 ne = mean + birfringence/2

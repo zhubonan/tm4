@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 import scipy as sp
 import numpy as np
 import mathfuncNew as mfc
-import warnings
+import matplotlib.pyplot as pl
 #%%
 class OpticalProperties:
     # Transformation matrix from the (s,p) basis to the (L,R) basis...
@@ -65,12 +65,11 @@ class OpticalProperties:
     def circularJones(self):
         """Returns the Jones matrices for circular polarization basis
         
-        'Jones' : pair of (Jr, Jt) reflexion and transmission Jones matrices
-                  may be an array of shape [...,2,2,2]
-       
         The Jones matrices for circular polarization are Jr^c = D⁻¹ Jr C  and
         Jt^c = C⁻¹ Jt C.
-    
+        Jones matrice for circular polarisation is in the form of:
+                                         [[r_LL, r_LR],
+                                          [r_LL, r_RR]]
         Returns : array of the same shape.
         """
         J = self.J
@@ -358,9 +357,7 @@ class Structure():
         self.Kx = Kx
     def setWl(self, wl):
         self.wl = wl
-    def setKx(self, Kx):
-        
-        self.Kx = Kx
+
         
 class HybridStructure(Structure):
     """
@@ -398,7 +395,13 @@ class HeliCoidalStructure(Structure):
         pitchand total thickness. Handness is left by default
         """
         self.divisionThickness = pitch / d
-        self.setHandness(handness) 
+        # Set handness of the helix
+        if handness == 'left':
+            self._handness = -1
+        elif handness == 'right':
+            self._handness = 1
+        else: raise RuntimeError('Handness need to be either left or right')
+        # Calculate the angles
         self.anglesRepeating = np.linspace(0, np.pi * self._handness, d, 
                                            endpoint = False)
         self.nOfReapting = int(t/pitch)
@@ -413,16 +416,7 @@ class HeliCoidalStructure(Structure):
         self.material = material
         self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d ,\
         "Handness":handness, "TotalThickness": remain + self.nOfReapting * pitch}
-                     
 
-    def setHandness(self, H):
-        
-        if H == 'left':
-            self._handness = -1
-        elif H == 'right':
-            self._handness = 1
-        else: raise RuntimeError('Handness need to be either left or right')
-        
     def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
         self.wl = wl
@@ -530,15 +524,24 @@ class OptSystem():
             index += 1
             print("Layer " + str(index), s.info)
             
-
- 
+    def scanSpectrum(self, wlList, keyword = "L-L"):
+        """Cacluate the respecon at the given wavelengths"""
+        result = []
+        for i in wlList:
+            self.setIncidence(i,self.Theta,self.Phi)
+            self.updateStructurePartialTransfer()
+            self.getTransferMatrix()
+            result.append(self.prop.RC[0,0])
+        intel =["P:"+str(s.info["Pitch"]) + " T:" +str(s.info["TotalThickness"])
+                for s in self.structures]
+        return intel, wlList, result
+        
 #%%Some staff for convenience
 air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)
 
 if __name__ == "__main__":
 #%%    
-    import matplotlib.pyplot as pl
     
     air = HomogeneousNondispersiveMaterial(1)
     glass = HomogeneousNondispersiveMaterial(1.5)

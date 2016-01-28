@@ -472,7 +472,7 @@ class OptSystem():
     """
     # Attributes
     # wl: wavelength, Theta: Incident angle, Phi:Azimuthal angle
-    wl, Theta, Phi= None, None, None
+    wl, Theta, Phi= None, 0, None
 
     
     def setStructure(self, strucList):

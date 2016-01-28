@@ -7,7 +7,7 @@ New class file
 from scipy.interpolate import interp1d
 import scipy as sp
 import numpy as np
-import mathfuncNew as mfc
+import mathFunc as mfc
 import matplotlib.pyplot as pl
 #%%
 class OpticalProperties:

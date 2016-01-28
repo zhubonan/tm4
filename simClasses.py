@@ -100,7 +100,11 @@ class Propagator():
             self._i = -1
         else:
             self._i = 1
-    def __call__(self, Delta, h, k0, q=None):
+            
+    def setMethod(self, method):
+        self.method = method
+        
+    def __call__(self, Delta, h, k0,q):
         """
         'Delta' : Delta matrix of the homogeneous material
         'h' : thickness of the homogeneous slab
@@ -110,7 +114,7 @@ class Propagator():
         """
         if   self.method == "linear":    return np.identity(4) + 1j * h * k0 * Delta * self._i
         elif self.method == "Pade":      return sp.linalg.expm(1j * h * k0 * Delta * self._i, q)
-        elif self.method == "Taylor":    return sp.linalg.expm3(1j * h * k0 * Delta * self._i, q+1)
+        elif self.method == "Taylor":    return sp.linalg.expm3(1j * h * k0 * Delta * self._i, q + 1)
         elif self.method == "eig":       return sp.linalg.expm2(1j * h * k0 * Delta* self._i)
             
 #%% Defining Material Classes
@@ -462,7 +466,51 @@ class HeliCoidalStructure(Structure):
         self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
         return self.partialTransfer.copy()
     
-
+class customHeliCoidal(HeliCoidalStructure):
+    """A  non standard helicoidal strucuture"""
+    
+    def __init__(self, material, pitch, d, t, handness = 'left'):
+        """
+        Initialise the structure by passing material pitch, division per 
+        pitchand total thickness. Handness is left by default
+        * Here d is the TOTAL number of divisions
+        """
+        self.divisionThickness = t / d
+        # Set handness of the helix
+        if handness == 'left':
+            self._handness = -1
+        elif handness == 'right':
+            self._handness = 1
+        else: raise RuntimeError('Handness need to be either left or right')
+        # Calculate the angles
+        # We set the "Repeating unit" to be whole thickness and number of repeatation be 1
+        self.anglesRepeating = np.linspace(0, t/pitch*np.pi * self._handness, d, endpoint = False)
+        # Need to offset the angle in order to evaluate at the midpoint of a layer
+        self.anglesRepeating += self.divisionThickness / pitch / 2 * np.pi * self._handness
+        self.nOfReapting = 1
+        # Set material
+        self.material = material
+        self.info = {"Type":"CustomHeliCodidal", "Pitch":pitch, "DivisionPerPitch": d * pitch/ t ,\
+        "Handness":handness, "TotalThickness": t}
+        
+    def injectRandomRotation(self, randomness, dstr = 'linear'):
+        """
+        Add randomness to the azmuthal rotation for each layer
+        
+        * randomness:  Measure of randomness of rad/nm
+        * dstr: Type of distibution
+        """
+        # Scale the angle addition with the layer thickness
+        factor = randomness * self.divisionThickness
+        if dstr == 'linear':
+            randomAngle = (np.random.random_sample(len(self.anglesRepeating)) - 0.5) * factor
+        elif dstr == 'std':
+            randomAngle = np.random.standard_normal(len(self.anglesRepeating)) * factor
+        else:
+            print('Please select valid randomnisation method')
+            return
+        
+        self.anglesRepeating += randomAngle
 #%% OptSystem Class definition
 
 class OptSystem():

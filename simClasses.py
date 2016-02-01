@@ -9,6 +9,7 @@ import scipy as sp
 import numpy as np
 import mathFunc as mfc
 import matplotlib.pyplot as pl
+from PitchProfile import PitchProfile
 #%%
 class OpticalProperties:
     # Transformation matrix from the (s,p) basis to the (L,R) basis...
@@ -86,7 +87,7 @@ class Propagator():
      A propagator class for easy access 
     """
     
-    def __init__(self, method = 'Pade', inv = True):
+    def __init__(self, method = 'eig', inv = True):
         """the value of 'method':
         "linear" -> first order approximation of exp()
         "Padé"   -> Padé approximation of exp()
@@ -336,6 +337,7 @@ class Structure():
     """
     A superclass represent a type of structure
     """
+    propagtor = Propagator(method = 'eig')
     material = None
     def __init__(self):
         raise NotImplementedError
@@ -357,19 +359,13 @@ class Structure():
         raise NotImplementedError
 #        self.propagator = 
     def setKx(self, Kx):
-        
         self.Kx = Kx
     def setWl(self, wl):
         self.wl = wl
 
-        
-class HybridStructure(Structure):
-    """
-    A structure representing a combination of other structures
-    """
+
 class HomogeneousStructure(Structure):
 
-    propagtor = Propagator() #default propagator
     Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
     
@@ -384,14 +380,63 @@ class HomogeneousStructure(Structure):
         self.partialTransfer = self.propagtor(self.delta, self.thickness, 2*np.pi/ self.wl)
         return self.partialTransfer
         
+        
+class AnyHeliCoidalStructure(Structure):
+    """A generalised helicoidalStucture"""
+    Phi = 0 #Set the angle phy to be zero in the start
+    Kx = None
+    def __init__(self, material, pitch, d, t, handness ='left'):
+        """
+        * material: A Material Class object
+        
+        * pitch: A 2*N array containting pitch as a function of depth to be 
+        interpolated
+        
+        * d: TOTAL division of the structure
+        
+        * t: TOTAL thickness of the structure
+        
+        * handness: 'left' or 'right'
+        """
+        
+        self.material = material
+        self.pitchProfile = PitchProfile(pitch , handness)
+        self.d = d
+        self.t = t
+        self.handness = handness
+    def getAngles(self):
+        """Get angles for constructuing Epsilon"""
+        zList = np.linspace(0, self.t, self.d, endpoint = False)
+        zList += self.t/self.d/2 #Evaluate at the midpoint of each layer
+        self.angles = self.pitchProfile.getAngles(zList)
+        
+    def constructEpsilon(self):
+        self.getAngles()
+        epsilon = self.material.getTensor(self.wl)
+        self.epsilon = [mfc.rotedEpsilon(epsilon, theta) for theta in self.angles]
+        
+    def constructDelta(self):
+        self.delta = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilon]
+    
+    def getPartialTransfer(self, q = None, updateEpsilon = True):
+        if updateEpsilon:    
+            self.constructEpsilon()
+        self.constructDelta()
+        d= self.t / self.d
+        k0 = 2*np.pi/self.wl
+        PMatrices = [self.propagtor(delta, d, k0, q) for delta in self.delta]
+        self.partialTransfer = mfc.stackDot(PMatrices)
+        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
+        self.info = {"Type":"AnyHeliCodidal", "Pitch": "Unspecified", "DivisionPerPitch": d ,\
+        "Handness":self.handness, "TotalThickness": self.t}
+        return self.partialTransfer
+        
 class HeliCoidalStructure(Structure):
     """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
     #wl = None #dont specify wavelength initially
-    propagtor = Propagator(method = 'eig') #default propagator
-    Phi = 0 #Set the angle phy to be zero in the start
-    Kx = None
+
     
     def __init__(self, material, pitch, d, t, handness = 'left'):
         """
@@ -463,7 +508,7 @@ class HeliCoidalStructure(Structure):
             TRemain = mfc.stackDot(PMatricesRemaining)
         else: TRemain = np.identity(4) 
         self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
-        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
+        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx}
         return self.partialTransfer.copy()
     
 class customHeliCoidal(HeliCoidalStructure):
@@ -576,12 +621,12 @@ class OptSystem():
         """Cacluate the respecon at the given wavelengths"""
         result = []
         for i in wlList:
+            print("At wavelength"+ str(i))
             self.setIncidence(i,self.Theta,self.Phi)
             self.updateStructurePartialTransfer()
             self.getTransferMatrix()
             result.append(self.prop.RC[0,0])
-        intel =["P:"+str(s.info["Pitch"]) + " T:" +str(s.info["TotalThickness"])
-                for s in self.structures]
+        intel =[s.info for s in self.structures]
         return intel, wlList, result
         
 #%%Some staff for convenience

@@ -6,6 +6,7 @@ Test AnyHelix Class operation
 """
 
 import simClasses as sim
+import PitchProfile as pit
 import matplotlib.pyplot as pl
 import numpy as np
 pl.rcParams['figure.figsize'] = (8,6)
@@ -22,7 +23,8 @@ glassback = sim.IsotropicHalfSpace(glass)
 system = sim.OptSystem()
 #%%
 helix1= sim.customHeliCoidal(cellulose, 150, 100, 1000)
-helix2 = sim.AnyHeliCoidalStructure(cellulose, [[0,499,500,1000],[150,150,150,150]], 100, 1000)
+helix2 = sim.AnyHeliCoidalStructure(cellulose, 100, 1000)
+helix2.setPitchProfile(pit.PolyPitchProfile([0.01,-2,-100], 150, 1000))
 system.setHalfSpaces(front, glassback)
 system.setStructure([helix2])
 system.setIncidence(500,0,0)

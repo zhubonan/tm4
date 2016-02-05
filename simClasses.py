@@ -9,7 +9,7 @@ import scipy as sp
 import numpy as np
 import mathFunc as mfc
 import matplotlib.pyplot as pl
-from PitchProfile import PitchProfile
+from PitchProfile import AnyPitchProfile
 #%%
 class OpticalProperties:
     # Transformation matrix from the (s,p) basis to the (L,R) basis...
@@ -385,7 +385,7 @@ class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
     Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
-    def __init__(self, material, pitch, d, t, handness ='left'):
+    def __init__(self, material, d, t, handness ='left'):
         """
         * material: A Material Class object
         
@@ -400,10 +400,20 @@ class AnyHeliCoidalStructure(Structure):
         """
         
         self.material = material
-        self.pitchProfile = PitchProfile(pitch , handness)
         self.d = d
         self.t = t
         self.handness = handness
+        
+    def setPitchProfile(self, pitchProfile):
+        self.pitchProfile = pitchProfile
+        if self.t != pitchProfile.totalThickness:
+            print('Inconsistent thickness replacing using stucture')
+            self.pitchProfile.totalThickness = self.t
+            
+        if self.handness != pitchProfile.handness:
+            print('Inconsistent handness replacing using stucture')
+            self.pitchProfile.handness = self.handness
+        
     def getAngles(self):
         """Get angles for constructuing Epsilon"""
         zList = np.linspace(0, self.t, self.d, endpoint = False)

@@ -627,17 +627,19 @@ class OptSystem():
             index += 1
             print("Layer " + str(index), s.info)
             
-    def scanSpectrum(self, wlList, keyword = "L-L"):
+    def scanSpectrum(self, wlList, giveinfo = True, keyword = "L-L"):
         """Cacluate the respecon at the given wavelengths"""
         result = []
         for i in wlList:
-            print("At wavelength"+ str(i))
+            #print("At wavelength"+ str(i))
             self.setIncidence(i,self.Theta,self.Phi)
             self.updateStructurePartialTransfer()
             self.getTransferMatrix()
             result.append(self.prop.RC[0,0].real) # take real part only
         intel =[s.info for s in self.structures]
-        return intel, wlList, result
+        if giveinfo:
+            return wlList, result, intel
+        else: return wlList,result
         
 #%%Some staff for convenience
 air = HomogeneousNondispersiveMaterial(1)

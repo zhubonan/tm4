@@ -174,7 +174,7 @@ class PolyPitchProfile(AnyPitchProfile):
         """Change the coefficient of the variation polynomial
         note that VariedPitch = (1/basePitch + varPoly)**-1
         """
-        self.varPoly = sp.poly1d(newCoeff)
+        self.varPoly = sp.poly1d(newCoeff/self.totalThickness)
         
 
         

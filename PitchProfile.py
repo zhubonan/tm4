@@ -120,50 +120,63 @@ class StepPitchProfile(PitchProfile):
 #%%
 class PolyPitchProfile(AnyPitchProfile):
     """A class that gives an quadratic profile of the pitch"""
-    integOrder = 5  #default order of fixed_quad integration
+    
     def __init__(self, polycoeff, basePitch, totalThickness, handness = 'left'):
         """Initialise the class by passing coefficient of polynomial, basePitch and
         total thickness of the profile
         
-        polycoeff: a list contain the coefficient of the variation polynomial. The
-        variation polynmial is added to the inverse of the pitch. poly = delta(1/pitch)
+        polycoeff: a list contain the coefficient of the variation polynomial.
+        The polynomial is added to the resulting *angle* profile rather than the
+        pitch
         
         basePitch: basis pitch we use
         
         totalThickness: totalThickness of the nematic layer
         """
         polycoeff = np.array(polycoeff)
-        self.pitchPoly = sp.poly1d(polycoeff/totalThickness)
+        self.varPoly = sp.poly1d(polycoeff/totalThickness)
         self.basePitch = basePitch
         self.totalThickness = totalThickness
         self.handness = handness
+        
     def getPitch(self, zList):
-        """Get the pitch at a list of z location. """
-        return self.pitchPoly(zList) + self.basePitch
+        """Get the pitch at a list of z location. The pitch is calculated from 
+        numerical differentiation
+        """
+        zList = np.array(zList)
+        sign = self.getSign()
+        pitchList =[]
+        f = lambda z: float(self.getAngles(z))
+        for z in zList:
+            pitchList.append(1 / sp.misc.derivative(f, z))
+        pitchList = np.array(pitchList) * pi * sign
+        return pitchList
 
-    def getAngles(self, zList):
+    def getSign(self):
+        
         if self.handness == 'left':
-            sign = -1
+            return -1
         elif self.handness == 'right':
-            sign= 1
+            return
         else:
             raise RuntimeError('handness is either left or right')
-        angles = []
-        pitchIntegrand = lambda x: 1/(self.pitchPoly(x) + self.basePitch) * sign
-        for z in zList:
-            # We use fast fixed qudrature method here
-            angles.append(sp.integrate.fixed_quad(pitchIntegrand, 0, z, 
-                                                  n = self.integOrder)[0] * pi)
+            
+    def getAngles(self, zList):
+        # Convert the zList to a np array
+        zList = np.array(zList)
+        # Check the handness
+        sign = self.getSign()
+        angles = (zList / self.basePitch * pi + self.varPoly(zList)) * sign
+        
         return angles
         
-    def changeCoeff(self, newCoeff):
+    def setCoeff(self, newCoeff):
         """Change the coefficient of the variation polynomial
         note that VariedPitch = (1/basePitch + varPoly)**-1
         """
-        self.pitchPoly = sp.poly1d(newCoeff)
+        self.varPoly = sp.poly1d(newCoeff)
         
-    def setIntegOrder(self, order):
-        self.integOrder = order
+
         
 if __name__ == '__main__':
     

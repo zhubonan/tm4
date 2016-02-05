@@ -635,7 +635,7 @@ class OptSystem():
             self.setIncidence(i,self.Theta,self.Phi)
             self.updateStructurePartialTransfer()
             self.getTransferMatrix()
-            result.append(self.prop.RC[0,0])
+            result.append(self.prop.RC[0,0].real) # take real part only
         intel =[s.info for s in self.structures]
         return intel, wlList, result
         

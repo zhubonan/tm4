@@ -59,11 +59,11 @@ target[0] = target[0] + 30
 pl.scatter(target[0], target[1])
 #%%
 def minFunc(coeff):
-    
+    coeff = coeff + [0]
     helix.pitchProfile.setCoeff(coeff)
     return merit(target, system)
     
-optResult = so.fmin(minFunc, [0,0,0], full_output = 1)
+optResult = so.fmin_bfgs(minFunc, [0,0,0], full_output = 1)
 #%%Plot the function
-scanResult = system.scanSpectrum(np.linspace(450,600,50))
+scanResult = system.scanSpectrum(np.linspace(400,700,50))
 pl.plot(scanResult[0],scanResult[1]) 

@@ -450,8 +450,12 @@ class HeliCoidalStructure(Structure):
     
     def __init__(self, material, pitch, t, d= 30, handness = 'left'):
         """
-        Initialise the structure by passing material pitch, division per 
-        pitchand total thickness. Handness is left by default
+        Initialise the structure by passing material pitch, total thickness. 
+        Division per pitch is default as 30. This class will spit the helix into 
+        integer number of repeating units and a remainder. Allowign fast
+        calculation. Note the thickness per slice may be difference in remainder and the 
+        repeating unit.
+        Handness is left by default
         """
         self.d = d
         self.sliceThickness = pitch / d

@@ -45,9 +45,9 @@ def merit(target, s):
     diff = cV - target[1]
     return np.sum((diff/target[2])**2)
 #%% Test using [-0.002,0.0001,0] base 150 thickness 1000
-target = np.array([[  4.53061224e+02,   4.73469388e+02,   4.93877551e+02,
-          5.14285714e+02,   5.34693878e+02,   5.55102041e+02,
-          5.75510204e+02,   5.95918367e+02],
+target = np.array([[  4.0061224e+02,   4.2469388e+02,   4.5877551e+02,
+          5.14285714e+02,   5.7693878e+02,   5.9102041e+02,
+          6.1510204e+02,   6.55918367e+02],
        [  1.19886818e-02,   5.08965969e-02,   9.49555603e-02,
           1.08123569e-01,   8.82413602e-02,   5.35027923e-02,
           2.36891293e-02,   7.83742888e-03],
@@ -59,11 +59,10 @@ target[0] = target[0] + 30
 pl.scatter(target[0], target[1])
 #%%
 def minFunc(coeff):
-    coeff = coeff + [0]
-    helix.pitchProfile.setCoeff(coeff)
+    helix.pitchProfile.setCoeff(np.append(coeff, [0]))
     return merit(target, system)
     
-optResult = so.fmin_bfgs(minFunc, [0,0,0], full_output = 1)
+optResult = so.fmin_powell(minFunc, [0,0,0,0,0], full_output = 1)
 #%%Plot the function
 scanResult = system.scanSpectrum(np.linspace(400,700,50))
 pl.plot(scanResult[0],scanResult[1]) 

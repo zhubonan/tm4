@@ -448,38 +448,43 @@ class HeliCoidalStructure(Structure):
     #wl = None #dont specify wavelength initially
 
     
-    def __init__(self, material, pitch, d, t, handness = 'left'):
+    def __init__(self, material, pitch, t, d= 30, handness = 'left'):
         """
         Initialise the structure by passing material pitch, division per 
         pitchand total thickness. Handness is left by default
         """
-        self.divisionThickness = pitch / d
+        self.d = d
+        self.sliceThickness = pitch / d
+        self.p = pitch
+        self.t = t
+        self.m = material
         # Set handness of the helix
         if handness == 'left':
             self._handness = -1
         elif handness == 'right':
             self._handness = 1
         else: raise RuntimeError('Handness need to be either left or right')
+        self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d,\
+        "Handness":handness, "TotalThickness": t}
+        
+    def calcAngles(self):
         # Calculate the angles
-        self.anglesRepeating = np.linspace(0, np.pi * self._handness, d, 
+        self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
                                            endpoint = False)
-        self.nOfReapting = int(t/pitch)
-        remain = np.remainder(t, pitch)
-        remainDivisions = int(remain/self.divisionThickness)
-        #discard the overflowing parts
-        remain = remainDivisions * self.divisionThickness
+        self.nOfReapting = int(self.t/self.p)
+        remain = np.remainder(self.t, self.p)
         if remain != 0:
             self._hasRemainder = True
-            self.anglesRemaining = np.linspace(0, remain/pitch*np.pi*self._handness,
-                                               remainDivisions, endpoint = False)
-        self.material = material
-        self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d ,\
-        "Handness":handness, "TotalThickness": remain + self.nOfReapting * pitch}
+            self.anglesRemaining = np.linspace(0, remain/self.p*np.pi*self._handness,
+                                               int(self.d/self.p*remain)+1, endpoint = False)
+            self.sliceThicknessRemainer = remain/(int(self.d/self.p*remain)+1)
+
 
     def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
+        self.calcAngles()
         self.wl = wl
-        epsilon = self.material.getTensor(wl)
+        epsilon = self.m.getTensor(wl)
         self.epsilonRepeating = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRepeating]
         if self._hasRemainder:
             self.epsilonRemaining = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRemaining]
@@ -502,14 +507,13 @@ class HeliCoidalStructure(Structure):
         self.constructDelta()
         #Get propagation matrices, require devision thickness the wl has the same
         #unit. This effectively scales the problem
-        d= self.divisionThickness
         k0 = 2*np.pi/self.wl
-        PMatricesRepeating = [self.propagtor(delta, d, k0, q) for delta
+        PMatricesRepeating = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
                               in self.deltaRepeating]
         self.P = PMatricesRepeating
         
         if self._hasRemainder:
-            PMatricesRemaining = [self.propagtor(delta, d, k0, q) for delta in 
+            PMatricesRemaining = [self.propagtor(delta, self.sliceThicknessRemainer, k0, q) for delta in 
                                   self.deltaRemaining]
         #Calculate the overall partial transfer matrix
         TRepeat = mfc.stackDot(PMatricesRepeating)

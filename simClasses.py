@@ -337,6 +337,7 @@ class Structure():
     """
     A superclass represent a type of structure
     """
+    Phi = 0
     propagtor = Propagator(method = 'eig')
     material = None
     def __init__(self):
@@ -445,10 +446,11 @@ class HeliCoidalStructure(Structure):
     """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
+    Phi = 0
     #wl = None #dont specify wavelength initially
 
     
-    def __init__(self, material, pitch, t, d= 30, handness = 'left'):
+    def __init__(self, material, pitch, t, d= 30, handness = 'left', phi = 0):
         """
         Initialise the structure by passing material pitch, total thickness. 
         Division per pitch is default as 30. This class will spit the helix into 
@@ -462,6 +464,7 @@ class HeliCoidalStructure(Structure):
         self.p = pitch
         self.t = t
         self.m = material
+        self.Phi = phi
         # Set handness of the helix
         if handness == 'left':
             self._handness = -1
@@ -470,19 +473,25 @@ class HeliCoidalStructure(Structure):
         else: raise RuntimeError('Handness need to be either left or right')
         self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d,\
         "Handness":handness, "TotalThickness": t}
+    def setPitch(self, pitch):
+        self.p = pitch
+        self.sliceThickness = pitch / self.d
+        
+    def setThickness(self, t):
+        self.t = t
         
     def calcAngles(self):
         # Calculate the angles
         self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
-                                           endpoint = False)
+                                           endpoint = False) + self.Phi #Add azimuthal angle
         self.nOfReapting = int(self.t/self.p)
         remain = np.remainder(self.t, self.p)
         if remain != 0:
             self._hasRemainder = True
             self.anglesRemaining = np.linspace(0, remain/self.p*np.pi*self._handness,
-                                               int(self.d/self.p*remain)+1, endpoint = False)
+                                               int(self.d/self.p*remain)+1, endpoint = False)#
+            self.anglesRemaining += self.Phi
             self.sliceThicknessRemainer = remain/(int(self.d/self.p*remain)+1)
-
 
     def constructEpsilon(self,wl = None):
         """Build the epsilon for each layer"""
@@ -634,6 +643,20 @@ class OptSystem():
         for s in self.structures:
             index += 1
             print("Layer " + str(index), s.info)
+            
+    def setPitch(self, pitchList):
+        """Change pitch of the structure in one go"""
+        if type(pitchList) == int:
+            pitchList = [pitchList]
+            
+        for i in range(len(pitchList)):
+            self.structures[i].setPitch(pitchList[i])
+    def setThickness(self, tList):
+        if type(tList) == int:
+            tList = [tList]
+            
+        for i in range(len(tList)):
+            self.structures[i].setThickness(tList[i])
             
     def scanSpectrum(self, wlList, giveinfo = True, keyword = "L-L"):
         """Cacluate the respecon at the given wavelengths"""

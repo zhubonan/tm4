@@ -8,6 +8,7 @@ Created on Sat Feb 13 20:09:06 2016
 import simClasses as sim
 import matplotlib.pyplot as pl
 import numpy as np
+from colourTools import specToRGB
 pl.rcParams['figure.figsize'] = (8,6)
 pl.rcParams['savefig.dpi'] = 100
 #%%
@@ -25,10 +26,15 @@ s.setHalfSpaces(airhalf,glasshalf)
 heli = sim.HeliCoidalStructure
 h1 = heli(CNC,150,1000)
 s.setStructure([h1])
-wlRange = np.linspace(400,800,100)
+wlRange = np.linspace(350,850,100)
 print('Followings are added to the scope')
 print('Materials: CNC, air, cellulosem, glass')
 print('HalfSpace: airhalf, glasshalf')
 print('OptSystem:s')
 print('heli as HeliCoidalStructure')
 print('wlRange as 400 to 800 nm')
+
+def plotSpectrum(OptSys, wlRange):
+    result = OptSys.scanSpectrum(wlRange)
+    pl.plot(result[0],result[1], color = specToRGB(result))
+    return

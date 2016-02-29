@@ -8,6 +8,7 @@ from scipy.io import loadmat
 from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
 import numpy as np
+pi = np.pi
 
 class scanData:
     """A class for easy control of scan.mat data"""
@@ -27,8 +28,10 @@ class scanData:
         return np.vstack((wl[intersect], spec[intersect]))
         
     def listAllDescription(self):
+        count = 0
         for i in self.data['desc']:
-            print(i)
+            print(i, '   index:' ,count)
+            count += 1
             
     def getSpectrumViaIndex(self, index):
         
@@ -51,7 +54,7 @@ class scanData:
         """Return the cropped spectrum given spectrum range, droping the noise"""
         return self.cropSpectrum(self.getSpectrumViaIndex(index), wlRange)
         
-    def getResampledFSpectrum(self, index, wlRange, ns = 2000, k = 'linear'):
+    def getResampledSpectrum(self, index, wlRange, ns = 10000, k = 'linear'):
         """Return a reSampled spectrum with 1/nm as the x axis, y axis is still
         the reflectrivity(as before)"""
         spectrum = self.getcroppedSpectrum(index,wlRange)
@@ -67,19 +70,23 @@ class scanData:
         
         return np.vstack((newX, newY))
     
-    def getFTSpectrum(self, index, wlRange):
+    def getFTSpectrum(self, index, wlRange,  ns = 10000, paddling = 100000):
         """Calculate the FFTed resampledSpectrum in 1/nm base so the axis should now
         be in nm. Can use this to see the effect of thin film interference and therby
-        find the thickness of the film
+        find the thickness of the film. The x axis is 
         """
         #Fist load the relvant data
-        spectrum = self.getResampledFSpectrum(index, wlRange)
+        spectrum = self.getResampledSpectrum(index, wlRange, ns)
         #Then we make the main to be zero
         meanValue = np.mean(spectrum[1])
         spectrum[1] = spectrum[1] - meanValue #So now the mean is zero
-        n = np.size(spectrum[1])
-        fspec = fft(spectrum[1])/2/np.pi
-        fX = fftfreq(np.size(spectrum[0]), spectrum[0,1] - spectrum[0,0])
+        # ZeroPaddling
+        paddled = np.append(spectrum[1], np.zeros(paddling))
+        fspec = fft(paddled)
+        n= paddled.size
+        # We want to scale the x axis such it is labed as nd. Note the ffted frequency
+        # is in the unit of hertz.
+        fX = fftfreq(len(paddled), spectrum[0,1] - spectrum[0,0])/2
         fY = np.abs(fspec)
         if n%2 == 0:
             t = n/2
@@ -92,10 +99,10 @@ class scanData:
 if __name__ == '__main__':
     import matplotlib.pyplot as pl
     data = scanData('scan')
-    resampled = data.getcroppedSpectrum(2,[370,870])
-    #resampled = data.cropSpectrum(resampled, [0.0012,0.0014])
-    fted = data.getFTSpectrum(2,[700,800])
-    #pl.plot(fted[0], fted[1])
-    #pl.xlim(0,10000)
+    resampled = data.getResampledSpectrum(3, [650,800])
+    fted = data.getFTSpectrum(3,[650,800], paddling= 100000)
+    pl.plot(fted[0], fted[1])
+    pl.xlim(0,20000)
+    pl.figure()
     pl.plot(resampled[0],resampled[1])
     pl.show()

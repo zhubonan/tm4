@@ -7,7 +7,7 @@ Created on Thu Jan 21 23:03:47 2016
 
 
 import numpy as np
-
+from math import sin, cos
 
 def normalise(vector):
     """Return a normalised vector"""
@@ -56,5 +56,15 @@ def buildDeltaMatrix(eps, Kx):
          [eps[0,0] - eps[0,2] * eps[2,0] / eps[2,2],
           eps[0,1] - eps[0,2] * eps[2,1] / eps[2,2],
           0, -Kx * eps[0,2] / eps[2,2]]])
-          
-          
+
+def rotXY(theta):
+    """Return a roation matrix in 2D. Used in Jones Calculus"""
+    R = np.array([[cos(theta), sin(theta)],[-sin(theta), cos(theta)]])
+    return R
+    
+def polariserJ(theta):
+    """Return the Jones matrix of a linear polariser"""
+    R = rotXY(theta)
+    Ri = rotXY(-theta)
+    J = np.array([[1,0],[0,0]])
+    return Ri.dot(J.dot(R))

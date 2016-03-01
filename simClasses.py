@@ -31,32 +31,17 @@ class OpticalProperties:
         self.RC = self.Jc[0].conj()*self.Jc[0]
         
     def getJones(self, T):
-        """Returns the Jones matrices.
-        
-        Returns : tuple (T_ri, T_ti)
-
+        """Returns the Jones matrices with linear polarisation basis
         T_ri is the Jones matrix in reflexion : [[r_pp, r_ps],
                                                  [r_sp, r_ss]]
 
         T_ti is the Jones matrix in transmission : [[t_pp, t_ps],
                                                     [t_sp, t_ss]]
-       
-        Naming convention (Fujiwara, p. 220):
-        't_ps' : transmitted p component for a s incident wave
-        't_ss' : transmitted s component for a s incident wave
-        ...
-
-        Note: If all materials are isotropic, r_ps = r_sp = t_sp = t_ps = 0
-
-        See also: 
-        * extractCoefficient() to extract the desired coefficients.
-        * circularJones() for circular polarization basis
+        basis: [p, s]
         """
-        # Extraction of T_it out of T. "2::-2" means integers {2,0}.
+        # Extract element from the transfer matrix to form the Jones matrix
         T_it = T[2::-2,2::-2]
         T_ti = sp.linalg.inv(T_it)
-        
-        # Extraction of T_rt out of T. "3::-2" means integers {3,1}.
         T_rt = T[3::-2,2::-2]
         
         # Then we have T_ri = T_rt * T_ti
@@ -78,6 +63,15 @@ class OpticalProperties:
         Jc_ti = np.linalg.solve(self.C, J[1].dot(self.C))
         return (Jc_ri, Jc_ti)     
     
+    def applyAnalyser(self, angle, i = 0):
+        """Return the Intensity after applying analyser. Assuming the incident 
+        light is unpolarised.
+        
+        i: set to 0 for reflection, 1 for transimission. default is 0
+        """
+        Jp = mfc.polariserJ(angle)
+        v = Jp.dot(self.J[i].dot([1,1]))
+        return np.linalg.norm(v)**2
 
 #%%
 # Propagator for a homogeneous slab of material...
@@ -337,7 +331,6 @@ class Structure():
     """
     A superclass represent a type of structure
     """
-    Phi = 0
     propagtor = Propagator(method = 'eig')
     material = None
     def __init__(self):
@@ -361,24 +354,28 @@ class Structure():
 #        self.propagator = 
     def setKx(self, Kx):
         self.Kx = Kx
+        
     def setWl(self, wl):
         self.wl = wl
 
 
 class HomogeneousStructure(Structure):
 
-    Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
     
-    def __init__(self, thickness, material = None):
+    def __init__(self, thickness, material = None, Phi = 0):
         self.material = material
-        self.thickness = thickness
+        self.t = thickness
+        self.Phi = Phi
+        self.info = {"Type":"Homogeneous", "TotalThickness": self.t}
     def constructDelta(self):
+        e = self.material.getTensor(self.wl)
+        e = mfc.rotedEpsilon(e, self.Phi)
         self.delta = mfc.buildDeltaMatrix(self.material.getTensor(self.wl), self.Kx)
     
     def getPartialTransfer(self):
         self.constructDelta()
-        self.partialTransfer = self.propagtor(self.delta, self.thickness, 2*np.pi/ self.wl)
+        self.partialTransfer = self.propagtor(self.delta, self.t, 2*np.pi/ self.wl, q = None)
         return self.partialTransfer
         
         
@@ -386,7 +383,7 @@ class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
     Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
-    def __init__(self, material, d, t, handness ='left'):
+    def __init__(self, material, d, t, handness ='left', Phi = 0):
         """
         * material: A Material Class object
         
@@ -404,6 +401,9 @@ class AnyHeliCoidalStructure(Structure):
         self.d = d
         self.t = t
         self.handness = handness
+        self.Phi = Phi
+        self.info = {"Type":"AnyHeliCodidal", "Pitch": "Unspecified", "DivisionPerPitch": d ,\
+        "Handness":self.handness, "TotalThickness": self.t}
         
     def setPitchProfile(self, pitchProfile):
         self.pitchProfile = pitchProfile
@@ -438,8 +438,7 @@ class AnyHeliCoidalStructure(Structure):
         PMatrices = [self.propagtor(delta, d, k0, q) for delta in self.delta]
         self.partialTransfer = mfc.stackDot(PMatrices)
         self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
-        self.info = {"Type":"AnyHeliCodidal", "Pitch": "Unspecified", "DivisionPerPitch": d ,\
-        "Handness":self.handness, "TotalThickness": self.t}
+        
         return self.partialTransfer
         
 class HeliCoidalStructure(Structure):
@@ -450,7 +449,7 @@ class HeliCoidalStructure(Structure):
     #wl = None #dont specify wavelength initially
 
     
-    def __init__(self, material, pitch, t, d= 30, handness = 'left', phi = 0):
+    def __init__(self, material, pitch, t, d= 30, handness = 'left', Phi = 0):
         """
         Initialise the structure by passing material pitch, total thickness. 
         Division per pitch is default as 30. This class will spit the helix into 
@@ -464,7 +463,7 @@ class HeliCoidalStructure(Structure):
         self.p = pitch
         self.t = t
         self.m = material
-        self.Phi = phi
+        self.Phi = Phi
         # Set handness of the helix
         if handness == 'left':
             self._handness = -1
@@ -630,6 +629,7 @@ class OptSystem():
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
         self.overallPartial = overallPartial  
+        
     def getTransferMatrix(self):
         
         frontinv = self.frontHalfSpace.getTransitionMatrix(self.Kx,self.wl, inv = True)
@@ -658,15 +658,25 @@ class OptSystem():
         for i in range(len(tList)):
             self.structures[i].setThickness(tList[i])
             
-    def scanSpectrum(self, wlList, giveinfo = True, keyword = "L-L"):
-        """Cacluate the respecon at the given wavelengths"""
+    def scanSpectrum(self, wlList, giveinfo = True, useProp = False):
+        """Cacluate the respecon at the given wavelengths. 
+       
+        giveinfo: boolen, determine if return information about the strcuture
+        
+        useProp: if set to True the result will be a list of OptProperties. Userful
+        if want to use the full information from calculation. e.g. Check the effect
+        of using analyser
+        """
         result = []
         for i in wlList:
             #print("At wavelength"+ str(i))
             self.setIncidence(i,self.Theta,self.Phi)
             self.updateStructurePartialTransfer()
             self.getTransferMatrix()
-            result.append(self.prop.RC[0,0].real) # take real part only
+            if useProp:
+                result.append(self.prop)
+            else:
+                result.append(self.prop.RC[0,0].real) # take real part only
         intel =[s.info for s in self.structures]
         if giveinfo:
             return wlList, result, intel

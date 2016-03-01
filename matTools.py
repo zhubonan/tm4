@@ -8,8 +8,42 @@ from scipy.io import loadmat
 from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
 import numpy as np
+import matplotlib.pyplot as pl
 pi = np.pi
 
+class specData:
+    """A class for storing the spectrum"""
+    def __init__(self, wl, spec):
+        self.wl = wl
+        self.spec = spec
+        self.range = [wl[0], wl[-1]]
+        self.currentSpec = self.spec
+        self.currentWl = self.wl
+        self.currentRange = self.range
+        
+    def crop(self,wlRange):
+        """Return the cropped spectrum given spectrum range, droping the noise"""
+        wl = self.wl
+        spec = self.spec
+        upper = np.where(wlRange[0] < wl)
+        lower = np.where(wlRange[1] > wl)
+        intersect = np.intersect1d(lower, upper)
+        self.currentWl = wl[intersect]
+        self.currentSpec= spec[intersect]
+        self.currentRange = wlRange
+        
+    def findPeak(self):
+        mxIndex = np.where(self.currentSpec == self.currentSpec.max())
+        return [self.currentWl[mxIndex][0], self.currentSpec[mxIndex][0]]
+        
+        
+    def getCurrentSpectrum(self):
+        return [self.currentWl, self.currentSpec]
+        
+    def plotCurrentSpectrum(self):
+        pl.figure()
+        pl.plot(self.currentWl, self.currentSpec)
+        
 class scanData:
     """A class for easy control of scan.mat data"""
     def __init__(self, filename):
@@ -33,31 +67,41 @@ class scanData:
             print(i, '   index:' ,count)
             count += 1
             
-    def getSpectrumViaIndex(self, index):
+    def getSpectrumViaIndex(self, index, field = None):
         
-        spec = self.data['spec'][index]
+        if field != None:
+            spec = self.data['spec'][index][:, field]
+            wl = self.data['wl'][index][:, field]
+        else:
+            spec = self.data['spec'][index]
+            wl = self.data['wl'][index]
         #Each data['sepc'] contine a number of 1d arrays each for a recording
-        wl = self.data['wl'][index]
         return wl, spec
         
-    def getSpectrumViaKeyWrod(self, keyword):
+    def _getSpectrumViaKeyWrod(self, keyword):
         result = []
         for i in range(len(self.data['desc'])):
             if self.data['desc'][i].find(keyword) != -1:
                 result.append(self.getSpectrumViaIndex(i))
         return np.array(result)
                 
-    def getDescViaIndex(self, index):
-        return self.data['desc'][index]
+    def getDescViaIndex(self, index, field = None):
+        if field != None:
+            return self.data['desc'][index][field]
+        else:
+            return self.data['desc'][index]
         
-    def getcroppedSpectrum(self, index, wlRange):
+    def getcroppedSpectrum(self, index, field = None, wlRange = [300,800] ):
         """Return the cropped spectrum given spectrum range, droping the noise"""
-        return self.cropSpectrum(self.getSpectrumViaIndex(index), wlRange)
+        if field != None:
+            return self.cropSpectrum(self.getSpectrumViaIndex(index, field), wlRange)
+        else:
+            return self.cropSpectrum(self.getSpectrumViaIndex(index), wlRange)
         
-    def getResampledSpectrum(self, index, wlRange, ns = 10000, k = 'linear'):
+    def getResampledSpectrum(self, index,  field = None, wlRange = [300,800], ns = 10000, k = 'linear'):
         """Return a reSampled spectrum with 1/nm as the x axis, y axis is still
         the reflectrivity(as before)"""
-        spectrum = self.getcroppedSpectrum(index,wlRange)
+        spectrum = self.getcroppedSpectrum(index,field, wlRange)
         #Change x coorindates to 1/nm
         spectrum[0] = 1/spectrum[0]
         #Resampling
@@ -70,13 +114,13 @@ class scanData:
         
         return np.vstack((newX, newY))
     
-    def getFTSpectrum(self, index, wlRange,  ns = 10000, paddling = 100000):
+    def getFTSpectrum(self, index, field = None, wlRange = [300,800],  ns = 10000, paddling = 100000, k = 'linear'):
         """Calculate the FFTed resampledSpectrum in 1/nm base so the axis should now
         be in nm. Can use this to see the effect of thin film interference and therby
         find the thickness of the film. The x axis is 
         """
         #Fist load the relvant data
-        spectrum = self.getResampledSpectrum(index, wlRange, ns)
+        spectrum = self.getResampledSpectrum(index, field, wlRange, ns, k)
         #Then we make the main to be zero
         meanValue = np.mean(spectrum[1])
         spectrum[1] = spectrum[1] - meanValue #So now the mean is zero
@@ -99,9 +143,11 @@ class scanData:
 if __name__ == '__main__':
     import matplotlib.pyplot as pl
     data = scanData('scan')
-    resampled = data.getResampledSpectrum(3, [650,800])
-    fted = data.getFTSpectrum(3,[650,800], paddling= 100000)
-    pl.plot(fted[0], fted[1])
+    resampled = data.getcroppedSpectrum(2,100,[600,700])
+    fted = data.getFTSpectrum(2,100,[600,700], paddling= 100000)
+    ftedS = specData(fted[0], fted[1])
+    ftedS.crop([5000,10000])
+    ftedS.plotCurrentSpectrum()
     pl.xlim(0,20000)
     pl.figure()
     pl.plot(resampled[0],resampled[1])

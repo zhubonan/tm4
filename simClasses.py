@@ -331,6 +331,7 @@ class Structure():
     """
     A superclass represent a type of structure
     """
+    Kx = None
     propagtor = Propagator(method = 'eig')
     material = None
     def __init__(self):
@@ -360,8 +361,8 @@ class Structure():
 
 
 class HomogeneousStructure(Structure):
-
-    Kx = None
+    
+    sType = 'homo'
     
     def __init__(self, thickness, material = None, Phi = 0):
         self.material = material
@@ -383,6 +384,7 @@ class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
     Phi = 0 #Set the angle phy to be zero in the start
     Kx = None
+    sType = 'helix'
     def __init__(self, material, d, t, handness ='left', Phi = 0):
         """
         * material: A Material Class object
@@ -402,8 +404,10 @@ class AnyHeliCoidalStructure(Structure):
         self.t = t
         self.handness = handness
         self.Phi = Phi
-        self.info = {"Type":"AnyHeliCodidal", "Pitch": "Unspecified", "DivisionPerPitch": d ,\
-        "Handness":self.handness, "TotalThickness": self.t}
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
         
     def setPitchProfile(self, pitchProfile):
         self.pitchProfile = pitchProfile
@@ -445,7 +449,7 @@ class HeliCoidalStructure(Structure):
     """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
-    Phi = 0
+    sType = 'helix'
     #wl = None #dont specify wavelength initially
 
     
@@ -470,19 +474,25 @@ class HeliCoidalStructure(Structure):
         elif handness == 'right':
             self._handness = 1
         else: raise RuntimeError('Handness need to be either left or right')
-        self.info = {"Type":"HeliCodidal", "Pitch":pitch, "DivisionPerPitch": d,\
-        "Handness":handness, "TotalThickness": t}
+        
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
+        
     def setPitch(self, pitch):
+        """set the pitch of the helix"""
         self.p = pitch
         self.sliceThickness = pitch / self.d
         
     def setThickness(self, t):
+        """set the thicknes of the helix"""
         self.t = t
         
     def calcAngles(self):
         # Calculate the angles
         self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
-                                           endpoint = False) + self.Phi #Add azimuthal angle
+                                           endpoint = False) + self.Phi
         self.nOfReapting = int(self.t/self.p)
         remain = np.remainder(self.t, self.p)
         if remain != 0:
@@ -561,8 +571,11 @@ class customHeliCoidal(HeliCoidalStructure):
         self.nOfReapting = 1
         # Set material
         self.material = material
-        self.info = {"Type":"CustomHeliCodidal", "Pitch":pitch, "DivisionPerPitch": d * pitch/ t ,\
-        "Handness":handness, "TotalThickness": t}
+        
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
         
     def injectRandomRotation(self, randomness, dstr = 'linear'):
         """
@@ -591,9 +604,9 @@ class OptSystem():
     """
     # Attributes
     # wl: wavelength, Theta: Incident angle, Phi:Azimuthal angle
-    wl, Theta, Phi= None, 0, None
-
-    
+    Phi = 0
+    Theta = 0
+    wl = None
     def setStructure(self, strucList):
         """Set the Stucture of the System"""
         self.structures = strucList
@@ -610,6 +623,7 @@ class OptSystem():
         
         self.setFrontHalfSpcae(front)
         self.setBackHalfSpace(back)
+        
     def setIncidence(self, wl, Theta =0, Phi = 0):
         """Set the incidence conditions"""
         self.wl = wl
@@ -625,6 +639,7 @@ class OptSystem():
         for s in self.structures:
             s.setKx(self.Kx)
             s.setWl(self.wl)
+            s.Phi = self.Phi
             s.getPartialTransfer()
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
@@ -642,7 +657,7 @@ class OptSystem():
         index = 0
         for s in self.structures:
             index += 1
-            print("Layer " + str(index), s.info)
+            print("Layer " + str(index), s.getInfo())
             
     def setPitch(self, pitchList):
         """Change pitch of the structure in one go"""
@@ -651,6 +666,7 @@ class OptSystem():
             
         for i in range(len(pitchList)):
             self.structures[i].setPitch(pitchList[i])
+            
     def setThickness(self, tList):
         if type(tList) == int:
             tList = [tList]
@@ -677,7 +693,7 @@ class OptSystem():
                 result.append(self.prop)
             else:
                 result.append(self.prop.RC[0,0].real) # take real part only
-        intel =[s.info for s in self.structures]
+        intel =[s.getInfo for s in self.structures]
         if giveinfo:
             return wlList, result, intel
         else: return wlList,result

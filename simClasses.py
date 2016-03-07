@@ -353,20 +353,26 @@ class Structure():
         """A method to build the partial transfer matrix for the layer"""
         raise NotImplementedError
 #        self.propagator = 
+    def getInfo():
+        """A method to get info of the structure"""
+        raise NotImplementedError
+        
     def setKx(self, Kx):
         self.Kx = Kx
         
     def setWl(self, wl):
         self.wl = wl
 
-
+    def setThickness(self, t):
+        self.t = t
+        
 class HomogeneousStructure(Structure):
     
     sType = 'homo'
     
-    def __init__(self, thickness, material = None, Phi = 0):
+    def __init__(self, material, t, Phi = 0):
         self.material = material
-        self.t = thickness
+        self.t = t
         self.Phi = Phi
         self.info = {"Type":"Homogeneous", "TotalThickness": self.t}
     def constructDelta(self):
@@ -379,6 +385,9 @@ class HomogeneousStructure(Structure):
         self.partialTransfer = self.propagtor(self.delta, self.t, 2*np.pi/ self.wl, q = None)
         return self.partialTransfer
         
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"Homegeneous", "TotalThickness": self.t}
         
 class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
@@ -674,7 +683,7 @@ class OptSystem():
         for i in range(len(tList)):
             self.structures[i].setThickness(tList[i])
             
-    def scanSpectrum(self, wlList, giveinfo = True, useProp = False):
+    def scanSpectrum(self, wlList, giveInfo = True, useProp = False):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -694,7 +703,7 @@ class OptSystem():
             else:
                 result.append(self.prop.RC[0,0].real) # take real part only
         intel =[s.getInfo for s in self.structures]
-        if giveinfo:
+        if giveInfo:
             return wlList, result, intel
         else: return wlList,result
         

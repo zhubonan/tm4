@@ -7,6 +7,8 @@ import matplotlib.pyplot as pl
 import numpy as np
 import copy as cp
 from colourTools import specToRGB
+from multiprocessing import Pool
+from time import clock
 pl.rcParams['figure.figsize'] = (8,6)
 pl.rcParams['savefig.dpi'] = 100
 #%%
@@ -24,14 +26,10 @@ s.setHalfSpaces(airhalf,glasshalf)
 heli = sim.HeliCoidalStructure
 h1 = heli(CNC, 150, 1000)
 spacer = sim.HomogeneousStructure(CNC, 10)
+airSpacer = sim.HomogeneousStructure(air,10)
+glassSpacer = sim.HomogeneousStructure(glass,10)
 s.setStructure([h1])
 wlRange = np.linspace(350,850,50)
-print('Followings are added to the scope')
-print('Materials: CNC, air, cellulosem, glass')
-print('HalfSpace: airhalf, glasshalf')
-print('OptSystem:s')
-print('heli as HeliCoidalStructure')
-print('wlRange as 400 to 800 nm')
 #%% Functions
 def plotSpectrum(OptSys, wlRange):
     result = OptSys.scanSpectrum(wlRange)
@@ -71,6 +69,7 @@ class CrossSection():
         self.n = nol # Number of layers
         self.s = optSys # The intantiated OptSystem object
         self.interface = [0] * (nol-1) # Preallocate the 
+        self.wlList = None
         
     def setLayerTemplate(self, template):
         """Set up the type of layers using the a list of existing Strucuture objects.
@@ -113,42 +112,77 @@ class CrossSection():
         y = np.append(self.h, np.repeat([[self.d]], len(self.p), axis = 0), axis = 1)
         pl.plot(x,y,'o-')
         pl.ylim(0,self.d+100)
+        pl.title('Cross-section')
+        pl.xlabel('distance /nm')
+        pl.ylabel('Depth /nm')
         pl.show()
         
-    def getSpectrum(self, wlList):
+    def getSpectrum(self, wlList = None, showResult = True):
         """Calculate the spectrum for each point with given list of wavelengths"""
+        if wlList == None:
+            wlList = self.wlList
         result = []
         n = len(self.t)                
         for i in range(n):
             print('Calculating point ' + str(i+1) +  ' out of ' + str(n) + '...', flush = True)
-            s.setStructure(self.tmp)
-            s.setThickness(self.t[i])
-            result.append(s.scanSpectrum(wlList, giveInfo = False)[1])
+            self.s.setStructure(self.tmp)
+            self.s.setThickness(self.t[i])
+            result.append(self.s.scanSpectrum(wlList, giveInfo = False)[1]) #Select the spec data only
+        result = np.array(result)
+        if showResult: self.plotResult(wlList, result)
         return result
-            
+        
+    def setWlList(self,wlList):
+        self.wlList = wlList
+        
+    def getResultForPoint(self, pointIndex, wlList = None):
+        """This method is to be called for getting the spectrum for a certain point""" 
+        if wlList == None:
+            wlList = self.wlList
+        self.s.setStructure(self.tmp)
+        self.s.setThickness(self.t[pointIndex])
+        result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
+        print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
+        return result
+        
+    @staticmethod
+    def plotResult(wlList, result):
+        r = result
+        pl.figure(1)
+        pl.subplot(211)
+        pl.plot(wlList,r.T)
+        pl.xlim((wlList[0], wlList[-1]))
+        pl.xlabel('Wavelength /nm')
+        pl.ylabel('Reflectivity(L-L)')
+        pl.subplot(212)    
+        pl.imshow(r, aspect = 'auto', interpolation = 'none')
+        pl.legend()
+        pl.show()
+        return
+def f1(x):
+    return 4500 - 2 *x
+    
+def f2(x):
+    return 500 + 2 *x
+    
 if __name__ == '__main__':
     wlRange = np.linspace(450,670,200)
     h1 = heli(CNC,165,1000)
-    h2 = heli(CNC, 180 ,1000)
+    h2 = heli(CNC, 200 ,1000)
     h2.Phi = np.pi/4;
-    tmp = [h1,spacer, h1]
+    
+    tmp = [h2,h1, h2]
     #%% Set layer structure
-    c = CrossSection(s, 10000,1000,3)
-    f1 = lambda x: 4000 + 6 * x
-    f2 = lambda x: 3500 + 6 * x
+    c = CrossSection(s, 5000,1000,3)
     c.setInterfaceFunction(f1,0)
     c.setInterfaceFunction(f2,1)
-    c.calcPixelConfig(20)
-    c.showLayerStructure()
-    #%%    
+    c.calcPixelConfig(50)
     c.setLayerTemplate(tmp)
-    r = c.getSpectrum(wlRange)
-    r = np.array(r)
-    x = wlRange[:,np.newaxis].repeat(10, axis = 1)
-    pl.figure(1)
-    pl.subplot(211)
-    lines = pl.plot(x,r.T)
-    pl.subplot(212)    
-    pl.imshow(r, interpolation = 'none')
-    pl.legend()
-    pl.show()
+    #r = c.getSpectrum(wlRange)
+    c.setWlList(wlRange)
+    if 1:
+        t = clock()
+        pool = Pool(processes = 2)
+        res = pool.map(c.getResultForPoint, range(50))
+        print(clock()-t)
+    c.plotResult(wlRange, np.array(res))

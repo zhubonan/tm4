@@ -11,6 +11,14 @@ import mathFunc as mfc
 import matplotlib.pyplot as pl
 from PitchProfile import AnyPitchProfile
 #%%
+class customCall:
+    """A convenient class to overriding calls to a object"""
+    def __init__(self,value):
+        self.v= value
+        
+    def __call__(self,*args):
+        return self.v
+        
 class OpticalProperties:
     # Transformation matrix from the (s,p) basis to the (L,R) basis...
     C = 1 / np.sqrt(2) * np.array([[1, 1], [1j, -1j]])
@@ -124,9 +132,9 @@ class Material:
         known_e and known_o should be 2 x N array of known values of ne and no.
         """
         if type(a) != list and type(a) != np.ndarray:
-            self.fa = lambda x: a
-            self.fb = lambda x: b
-            self.fc = lambda x: c
+            self.fa = customCall(a)
+            self.fb = customCall(b)
+            self.fc = customCall(c)
             return
             
         self.a , self.b, self.c = np.asarray(a), np.asarray(b), np.asarray(c)

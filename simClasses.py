@@ -9,10 +9,10 @@ import scipy as sp
 import numpy as np
 import mathFunc as mfc
 import matplotlib.pyplot as pl
-from PitchProfile import AnyPitchProfile
 #%%
 class customCall:
-    """A convenient class to overriding calls to a object"""
+    """A convenient class to overlording calls to a object. It is used in Material
+    Class in order to allow multiprocessing compatibility"""
     def __init__(self,value):
         self.v= value
         

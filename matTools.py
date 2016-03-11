@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Feb 14 18:02:50 2016
 matlab for loading data from spectrometer
@@ -14,10 +13,10 @@ pi = np.pi
 
 
         
-class specDataStack():
+class specData():
     """Analysis spectrum from a stack of spec data"""
 
-    def __init__(self, wl, spec):
+    def __init__(self, wl, spec, desc = None):
         if len(spec.shape) == 1:
             # convect to rowVector
             spec = spec[:,np.newaxis]
@@ -29,7 +28,8 @@ class specDataStack():
         self.currentSpec = self.spec
         self.currentWl = self.wl
         self.currentRange = self.range
-    
+        self.desc = desc
+        
     @staticmethod
     def _cropIndices(wl, wlRange):
         """return the indices use for cropping spec data"""
@@ -82,11 +82,15 @@ class specDataStack():
         mxIndex = find_peaks_cwt(self.currentSpec, np.arange(*widthRange), **args)
         return mxIndex
         
+    def getIndexViaKeyword(self, keyword):
+        """Get the indices of the entries with the keyword"""
+        desc = self.desc.astype(np.str) #cast the array to string array
+        return np.where(np.char.find(desc,keyword) != -1)
         
     def getCropped(self,wlRange):
         """Return an specData object that is cropped with given range"""
         intersect = self._cropIndices(self.wl, wlRange)
-        return specDataStack(self.wl[intersect, :],self.spec[intersect, :])
+        return specData(self.wl[intersect, :],self.spec[intersect, :])
         
     def plot(self, showPeaks = False, peakWidthRange = (1,100), **argv):
         """Plot  the current data"""
@@ -98,8 +102,23 @@ class specDataStack():
             for p in peakCoord:
                 x = p[0]
                 y = p[1]
-                pl.annotate("{0:.2f}".format(x), (x,y))    
+                pl.annotate("{0:.2f}".format(x), (x,y))
                 
+    def getSelected(self, indices = 'none', keyword = 'none'):
+        if keyword != 'none':
+            indicesViaKeyword = self.getIndexViaKeyword(keyword)
+            if indices != None:
+                indicesToUse = np.intersect1d(indicesViaKeyword, indices)
+            else:
+                indicesToUse = indicesViaKeyword
+        elif indices != 'none':
+            indicesToUse = indices
+        else:
+            raise RuntimeError("Need to have at least one argument")
+        out = specData(self.wl, self.spec[:,indicesToUse])
+        out.cropSelf(self.currentRange)
+        return out
+        
     def cropSelf(self,wlRange):
         """Crop the data. This will act one the oject itself, changing the current
         wl,spec and range"""
@@ -110,7 +129,7 @@ class specDataStack():
 
     
     def getResampledSpectrum(self, ns = 1000, k = 'linear'):
-        """Return the Resampled specDataStack object with x axis using 1/wl. Respect
+        """Return the Resampled specData object with x axis using 1/wl. Respect
         the cropping on self"""
         thisSpec = self.currentSpec[:,0]
         resSpecData = self._resampledSpectrum(1/self.currentWl, thisSpec, ns, k)
@@ -119,15 +138,14 @@ class specDataStack():
             thisSpec = self.currentSpec[:,i]   
             thisResampled = self._resampledSpectrum(1/self.currentWl, thisSpec, ns, k)[1]
             resSpec = np.append(resSpec, thisResampled[:,np.newaxis], axis = 1)
-        return specDataStack(resSpecData[0], resSpec)
+        return specData(resSpecData[0], resSpec)
         
     def append(self, other):
         self.spec = np.append(self.spec, other.spec, axis = 1)
-
             
     def __add__(self, other):
         newSpec = np.append(self.spec,other.spec, axis = 1)
-        output = specDataStack(self.wl, newSpec)
+        output = specData(self.wl, newSpec)
         if self.currentRange == other.currentRange:
             output.cropSelf(self.currentRange)
         return output
@@ -135,47 +153,46 @@ class specDataStack():
 class scanData:
     """An alternative way to load scan.mat into python"""
     def __init__(self, filename):
-        self.scan = loadmat(filename, squeeze_me = True, struct_as_record = False,
+        self.scan = loadmat(filename, squeeze_me = False, struct_as_record = False,
                             appendmat = True)['scan']
         #scan is an 1D numpy object array contatining scipy mat_struct objects
         #This is preffered as it let data access easier since we don't care about saving
         self.noOfData = self.scan.size
         self.selectStruct(0)
-        self.wl = self.currentStruct.wl
+        self.wl = self.scan[0,0].wl[:,0]
 
     def selectStruct(self, index):
         """Select the current struct from"""
-        self.currentStruct = self.scan[index]
-    
-    def getIndexViaKeyword(self, keyword):
-        """Get the indices of the entries with the keyword"""
-        desc = self.currentStruct.desc.astype(np.str) #cast the array to string array
-        return np.where(np.char.find(desc,keyword) != -1)
+        self.currentStruct = self.scan[index,0]
         
     def getCurrentSpecData(self):
-        return specDataStack(self.wl, self.currentStruct.spec)
-        
-    def plotCurrentSpec(self, indices = None, keyword = None):
-        if keyword != None:
-            indicesViaKeyword = self.getIndexViaKeyword(keyword)
-            if indices != None:
-                indicesToUse = np.intersect1d(indicesViaKeyword, indices)
-            else:
-                indicesToUse = indicesViaKeyword
-        elif indices != None:
-            indicesToUse = indices
-        else:
-            thisSpecData = specDataStack(self.wl, self.currentStruct.spec)
-            thisSpecData.plot()
-            return
-        thisSpecData = specDataStack(self.wl, self.currentStruct.spec[:,indicesToUse])
-        thisSpecData.plot() 
+        return specData(self.wl, self.currentStruct.spec, self.currentStruct.desc)
     
+    @staticmethod
+    def _convertDescField(desc):
+        """Convert the desc field. If desc is a string then make it np array
+        if desc is an array then squeeze the data structure"""
+        if desc.size != 1:
+            descList = list(map(lambda x: desc[x][0][0], range(desc.size)))
+            out = np.array(descList)
+        else:
+            out = desc
+        return out
+        
+    def getCombinedSpecData(self,indices = 'all'):
+        """Combine selected spec data, and return an specData object"""
+        if indices == 'all':
+            indices = np.arange(self.scan.size)
+        specList = map(lambda x: self.scan[x,0].spec, indices)
+        specOut = np.concatenate(list(specList),axis = 1)
+        descList = map(lambda x: self._convertDescField(self.scan[x,0].desc), indices)
+        descOut = np.concatenate(list(descList))
+        return specData(self.wl , specOut, descOut)
+        
 if __name__ == '__main__':
     scan = scanData('scan')
-    scan.selectStruct(2)
-    s = scan.getCurrentSpecData()
-    s.cropSelf((400,700))
-    s2 = s + s 
-    sr = s2.getResampledSpectrum()
-    sr.plot()
+    comb = scan.getCombinedSpecData()
+    #scan.selectStruct(2)
+    #s = scan.getCurrentSpecData()
+    #s.cropSelf((400,700))
+    #ss = s.getSelected(indices = np.arange(0,2,116))

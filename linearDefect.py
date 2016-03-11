@@ -167,10 +167,9 @@ def f2(x):
     
 if __name__ == '__main__':
     wlRange = np.linspace(450,670,200)
-    h1 = heli(CNC,165,1000)
+    h1 = heli(CNC,180,1000)
     h2 = heli(CNC, 200 ,1000)
     h2.Phi = np.pi/4;
-    
     tmp = [h2,h1, h2]
     #%% Set layer structure
     c = CrossSection(s, 5000,1000,3)
@@ -178,11 +177,11 @@ if __name__ == '__main__':
     c.setInterfaceFunction(f2,1)
     c.calcPixelConfig(50)
     c.setLayerTemplate(tmp)
-    #r = c.getSpectrum(wlRange)
+    #%%
     c.setWlList(wlRange)
     if 1:
         t = clock()
-        pool = Pool(processes = 2)
+        pool = Pool(processes = 8)
         res = pool.map(c.getResultForPoint, range(50))
         print(clock()-t)
     c.plotResult(wlRange, np.array(res))

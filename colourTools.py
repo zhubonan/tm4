@@ -492,7 +492,8 @@ _XYZ_to_RGB =  [
 # Convert the table into numpy array of 4xN
 table = np.array(_CIEXYZ_1931_table).T
 def specToXYZ(spec):
-    """Calculate the XYZ coordinate of the spectrum input. It will inerpolate the 
+    """
+    Calculate the XYZ coordinate of the spectrum input. It will inerpolate the 
     sepctrum linearly to calculate using the table
     spec: input spectrum, 2*N ndarray
     """

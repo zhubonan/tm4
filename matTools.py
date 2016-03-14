@@ -7,6 +7,7 @@ from scipy.io import loadmat
 from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
 from scipy.signal import find_peaks_cwt
+from colourTools import specToRGB
 import numpy as np
 import matplotlib.pyplot as pl
 pi = np.pi
@@ -90,7 +91,7 @@ class specData():
     def getCropped(self,wlRange):
         """Return an specData object that is cropped with given range"""
         intersect = self._cropIndices(self.wl, wlRange)
-        return specData(self.wl[intersect, :],self.spec[intersect, :])
+        return specData(self.wl[intersect],self.spec[intersect, :])
         
     def plot(self, showPeaks = False, peakWidthRange = (1,100), **argv):
         """Plot  the current data"""
@@ -139,10 +140,42 @@ class specData():
             thisResampled = self._resampledSpectrum(1/self.currentWl, thisSpec, ns, k)[1]
             resSpec = np.append(resSpec, thisResampled[:,np.newaxis], axis = 1)
         return specData(resSpecData[0], resSpec)
+    
+    def applyFunc2D(self, func, nOutput):
+        """Apply a function to each spectrum measurement and return an (n,n,X) array
+        where X is the output of the function"""
+        s, n = self.currentSpec.shape
+        g = np.zeros((n, nOutput))
+        for i in range(n):
+            g[i,:] = func(self.currentSpec[:,i])
+        l = np.sqrt(n)
+        gArray = g.reshape((l,l,nOutput))
+        #Try to squeeze the array
+        try:
+            gArray = np.squeeze(gArray, 2)
+        except: pass
+        return gArray
+    
+    def get2DColouredImage(self, show = False):
+        """Show image by converting spectrum to RGB"""
+        s, n = self.spec.shape # n is the number of spectrum
+        RGB = np.zeros((n,3))
+        for i in range(n):
+            RGB[i,:] = specToRGB([self.wl, self.spec[:,i]])
+        l = int(np.sqrt(n))
+        RGBArray = RGB.reshape((l,l,3))
+        if show:
+            pl.imshow(RGBArray)
+        return RGBArray
         
-    def append(self, other):
-        self.spec = np.append(self.spec, other.spec, axis = 1)
-            
+    def get2DGreyScaleImage(self, show = False):
+        
+        s, n = self.currentSpec.shape
+        g = np.sum(self.currentSpec, axis = 0)
+        l = np.sqrt(n)
+        gArray = g.reshape((l,l))    
+        return gArray
+        
     def __add__(self, other):
         newSpec = np.append(self.spec,other.spec, axis = 1)
         output = specData(self.wl, newSpec)

@@ -27,14 +27,14 @@ def convertToRGB(wl, spec):
     l = int(np.sqrt(n))
     RGBArray = RGB.reshape((l,l,3))
     return RGBArray
-pl.imshow(convertToRGB(spec.currentWl, spec.currentSpec))
+pl.imshow(convertToRGB(spec.wl, spec.spec))
 
 def customGreyScale(wl,spec, wlRange):
     """Convert the 2D Scan spec data to grey scale with given averaging range"""
     specObj = specData(wl,spec)
     specObj.cropSelf(wlRange)
     s, n = specObj.currentSpec.shape
-    g = np.sum(specObj.currentSpec, axis = 0)
+    g = np.sum(specObj.spec, axis = 0)
     l = np.sqrt(n)
     gArray = g.reshape((l,l))
     return gArray
@@ -42,10 +42,10 @@ def customGreyScale(wl,spec, wlRange):
 def findPeak(wl, spec, wlRange):
     specObj = specData(wl,spec)
     specObj.cropSelf(wlRange)
-    s, n = specObj.currentSpec.shape
+    s, n = specObj.spec.shape
     g = np.zeros(n)
     for i in range(n):
-        g[i] = specObj.currentSpec[:,i].max()
+        g[i] = specObj.spec[:,i].max()
     l = np.sqrt(n)
     gArray = g.reshape((l,l))
     return gArray

@@ -26,9 +26,7 @@ class specData():
         self.wl = wl
         self.spec = spec
         self.range = [wl[0], wl[-1]]
-        self.currentSpec = self.spec
-        self.currentWl = self.wl
-        self.currentRange = self.range
+        self.spec = self.spec
         self.desc = desc
         
     @staticmethod
@@ -80,7 +78,7 @@ class specData():
         
     def findPeakIndex(self, widthRange = (1,100), **args):
         """Find the peak on the active data"""
-        mxIndex = find_peaks_cwt(self.currentSpec, np.arange(*widthRange), **args)
+        mxIndex = find_peaks_cwt(self.spec, np.arange(*widthRange), **args)
         return mxIndex
         
     def getIndexViaKeyword(self, keyword):
@@ -88,7 +86,7 @@ class specData():
         desc = self.desc.astype(np.str) #cast the array to string array
         return np.where(np.char.find(desc,keyword) != -1)
         
-    def getCropped(self,wlRange):
+    def crop(self,wlRange):
         """Return an specData object that is cropped with given range"""
         intersect = self._cropIndices(self.wl, wlRange)
         return specData(self.wl[intersect],self.spec[intersect, :])
@@ -96,10 +94,10 @@ class specData():
     def plot(self, showPeaks = False, peakWidthRange = (1,100), **argv):
         """Plot  the current data"""
         pl.figure()
-        pl.plot(self.currentWl, self.currentSpec)
+        pl.plot(self.wl, self.spec)
         if showPeaks:        
             peakId = self.findPeakIndex(peakWidthRange,**argv)
-            peakCoord =  np.array([self.currentWl[peakId] , self.currentSpec[peakId]]).T
+            peakCoord =  np.array([self.wl[peakId] , self.spec[peakId]]).T
             for p in peakCoord:
                 x = p[0]
                 y = p[1]
@@ -117,37 +115,35 @@ class specData():
         else:
             raise RuntimeError("Need to have at least one argument")
         out = specData(self.wl, self.spec[:,indicesToUse])
-        out.cropSelf(self.currentRange)
         return out
         
     def cropSelf(self,wlRange):
-        """Crop the data. This will act one the oject itself, changing the current
-        wl,spec and range"""
+        """Crop the data. This will act one the oject itself"""
         intersect  = self._cropIndices(self.wl, wlRange)
-        self.currentWl = self.wl[intersect]
-        self.currentSpec= self.spec[intersect,:]
-        self.currentRange = wlRange    
+        self.wl = self.wl[intersect]
+        self.spec= self.spec[intersect,:]
+        self.range = wlRange
 
     
     def getResampledSpectrum(self, ns = 1000, k = 'linear'):
         """Return the Resampled specData object with x axis using 1/wl. Respect
         the cropping on self"""
-        thisSpec = self.currentSpec[:,0]
-        resSpecData = self._resampledSpectrum(1/self.currentWl, thisSpec, ns, k)
+        thisSpec = self.spec[:,0]
+        resSpecData = self._resampledSpectrum(1/self.wl, thisSpec, ns, k)
         resSpec = (resSpecData[1])[:,np.newaxis] #resize to column vector
         for i in range(1,self.n):
-            thisSpec = self.currentSpec[:,i]   
-            thisResampled = self._resampledSpectrum(1/self.currentWl, thisSpec, ns, k)[1]
+            thisSpec = self.spec[:,i]   
+            thisResampled = self._resampledSpectrum(1/self.wl, thisSpec, ns, k)[1]
             resSpec = np.append(resSpec, thisResampled[:,np.newaxis], axis = 1)
         return specData(resSpecData[0], resSpec)
     
-    def applyFunc2D(self, func, nOutput):
+    def applyFunc2D(self, func, nOutput, *args):
         """Apply a function to each spectrum measurement and return an (n,n,X) array
         where X is the output of the function"""
-        s, n = self.currentSpec.shape
+        s, n = self.spec.shape
         g = np.zeros((n, nOutput))
         for i in range(n):
-            g[i,:] = func(self.currentSpec[:,i])
+            g[i,:] = func(self.spec[:,i], *args)
         l = np.sqrt(n)
         gArray = g.reshape((l,l,nOutput))
         #Try to squeeze the array
@@ -155,7 +151,7 @@ class specData():
             gArray = np.squeeze(gArray, 2)
         except: pass
         return gArray
-    
+        
     def get2DColouredImage(self, show = False):
         """Show image by converting spectrum to RGB"""
         s, n = self.spec.shape # n is the number of spectrum
@@ -169,18 +165,18 @@ class specData():
         return RGBArray
         
     def get2DGreyScaleImage(self, show = False):
-        
-        s, n = self.currentSpec.shape
-        g = np.sum(self.currentSpec, axis = 0)
+        """Get a 2D grey scale image by summing spec data"""
+        s, n = self.spec.shape
+        g = np.sum(self.spec, axis = 0)
         l = np.sqrt(n)
-        gArray = g.reshape((l,l))    
+        gArray = g.reshape((l,l))
+        if show:
+            pl.imshow(gArray)
         return gArray
         
     def __add__(self, other):
         newSpec = np.append(self.spec,other.spec, axis = 1)
         output = specData(self.wl, newSpec)
-        if self.currentRange == other.currentRange:
-            output.cropSelf(self.currentRange)
         return output
         
 class scanData:
@@ -226,6 +222,6 @@ if __name__ == '__main__':
     scan = scanData('scan')
     comb = scan.getCombinedSpecData()
     #scan.selectStruct(2)
-    #s = scan.getCurrentSpecData()
+    #s = scan.getspecData()
     #s.cropSelf((400,700))
     #ss = s.getSelected(indices = np.arange(0,2,116))

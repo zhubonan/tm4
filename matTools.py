@@ -6,7 +6,7 @@ matlab for loading data from spectrometer
 from scipy.io import loadmat
 from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
-from scipy.signal import find_peaks_cwt
+from scipy.signal import find_peaks_cwt, savgol_filter
 from colourTools import specToRGB
 import numpy as np
 import matplotlib.pyplot as pl
@@ -91,17 +91,20 @@ class specData():
         intersect = self._cropIndices(self.wl, wlRange)
         return specData(self.wl[intersect],self.spec[intersect, :])
         
-    def plot(self, showPeaks = False, peakWidthRange = (1,100), **argv):
+    def plot(self, indices, showPeaks = False, peakWidthRange = (10,30), **argv):
         """Plot  the current data"""
         pl.figure()
-        pl.plot(self.wl, self.spec)
-        if showPeaks:        
-            peakId = self.findPeakIndex(peakWidthRange,**argv)
-            peakCoord =  np.array([self.wl[peakId] , self.spec[peakId]]).T
-            for p in peakCoord:
-                x = p[0]
-                y = p[1]
-                pl.annotate("{0:.2f}".format(x), (x,y))
+        spec = self.spec[:,indices]
+        n = spec.shape[1]
+        for i in range(n):
+            pl.plot(self.wl, spec[:,i])
+            if showPeaks:        
+                peakId = find_peaks_cwt(spec[:,i], np.arange(*peakWidthRange), **argv)
+                peakCoord =  np.array([self.wl[peakId] , spec[:,i][peakId]]).T
+                for p in peakCoord:
+                    x = p[0]
+                    y = p[1]
+                    pl.annotate("{0:.2f}".format(x), (x,y))
                 
     def getSelected(self, indices = 'none', keyword = 'none'):
         if keyword != 'none':
@@ -125,6 +128,24 @@ class specData():
         self.range = wlRange
 
     
+    def getFilteredSpectrum(self, window_length = 5, polyorder = 2, **args):
+        s, n = self.spec.shape
+        r = np.zeros((s, n))
+        for i in range(n):
+            r[:,i] = savgol_filter(self.spec[:,i], window_length, polyorder, **args)
+        return specData(self.wl, r, self.desc)
+        
+    def testFilter(self, window_length, polyorder, n = 0, **sav_args):
+        """Test parameters"""
+        origin = self.spec[:,n]
+        processed = savgol_filter(origin, window_length, polyorder, **sav_args)
+        pl.figure()
+        pl.subplot(211)        
+        pl.plot(self.wl, origin)
+        pl.title('Origin')
+        pl.subplot(212)
+        pl.plot(self.wl, processed)
+        
     def getResampledSpectrum(self, ns = 1000, k = 'linear'):
         """Return the Resampled specData object with x axis using 1/wl. Respect
         the cropping on self"""
@@ -161,8 +182,25 @@ class specData():
         l = int(np.sqrt(n))
         RGBArray = RGB.reshape((l,l,3))
         if show:
+            pl.figure()
             pl.imshow(RGBArray)
+            pl.title('RGBImage')
         return RGBArray
+    
+    def getPeaks(self, dim = 1 ,show = False):
+        """Return the peak wavelength and peak height in a tuple"""
+        s, n = self.spec.shape
+        l = np.sqrt(int(n))
+        peakH = np.max(self.spec, axis = 0)
+        peakWl = np.zeros(n)
+        for i in range(n):
+            peakWl[i] = self.wl[self.spec[:,i] == peakH[i]]
+        if dim == 2:
+            peakH = peakH.reshape((l,l))
+            peakWl = peakWl.reshape((l,l))
+            if show == True:
+                return disp2DPeakData(peakWl, peakH)
+        return peakWl, peakH
         
     def get2DGreyScaleImage(self, show = False):
         """Get a 2D grey scale image by summing spec data"""
@@ -171,14 +209,36 @@ class specData():
         l = np.sqrt(n)
         gArray = g.reshape((l,l))
         if show:
-            pl.imshow(gArray)
+            f = pl.figure()
+            pl.imshow(gArray, cmap = pl.get_cmap('gray'))
+            pl.colorbar()
+            wlr = "{0:.0f}".format(self.range[0]) + " to " + "{0:.0f}".format(self.range[1]) 
+            pl.title('Grey scale image using range ' + wlr)
+            pl.show()
+            return f
         return gArray
         
     def __add__(self, other):
         newSpec = np.append(self.spec,other.spec, axis = 1)
         output = specData(self.wl, newSpec)
         return output
-        
+#%%
+def disp2DPeakData(pWlMat, pHMat):
+      """
+      Display the data of the peaks. pWlMat and pHMat are matrices of peak 
+      wavelength and peak height"""
+      pWlF = pl.figure()
+      pl.title('Peak wavelength')
+      pl.imshow(pWlMat)
+      pl.colorbar()
+      pHMatF = pl.figure()
+      pl.title('Peak hieght')
+      pl.imshow(pHMat)
+      pl.colorbar()
+      pl.show()
+      return pWlF, pHMatF
+
+#%%
 class scanData:
     """An alternative way to load scan.mat into python"""
     def __init__(self, filename):

@@ -136,15 +136,17 @@ class specData():
         return specData(self.wl, r, self.desc)
         
     def testFilter(self, window_length, polyorder, n = 0, **sav_args):
-        """Test parameters"""
+        """Test savgol filter parameters"""
         origin = self.spec[:,n]
         processed = savgol_filter(origin, window_length, polyorder, **sav_args)
         pl.figure()
         pl.subplot(211)        
         pl.plot(self.wl, origin)
-        pl.title('Origin')
+        ylim = pl.ylim()
+        pl.title('Original')
         pl.subplot(212)
         pl.plot(self.wl, processed)
+        pl.ylim(ylim)
         
     def getResampledSpectrum(self, ns = 1000, k = 'linear'):
         """Return the Resampled specData object with x axis using 1/wl. Respect
@@ -182,9 +184,10 @@ class specData():
         l = int(np.sqrt(n))
         RGBArray = RGB.reshape((l,l,3))
         if show:
-            pl.figure()
+            f = pl.figure()
             pl.imshow(RGBArray)
             pl.title('RGBImage')
+            return f
         return RGBArray
     
     def getPeaks(self, dim = 1 ,show = False):

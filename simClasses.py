@@ -642,7 +642,13 @@ class OptSystem():
         self.setBackHalfSpace(back)
         
     def setIncidence(self, wl, Theta =0, Phi = 0):
-        """Set the incidence conditions"""
+        """Set the incidence conditions
+        
+        wl: wavelength of the incident light
+        
+        Theta: incident angle of the incidentl light
+        
+        Phi: azimuthal angle of the incident light"""
         self.wl = wl
         # Calculate Kx from the property of front half-space, Kx is then conserved
         # throughout the whole calculation
@@ -651,7 +657,10 @@ class OptSystem():
         self.Phi = Phi
         
     def updateStructurePartialTransfer(self):
-        
+        """Calculate the partial transfer matrices for all structures and update
+        the overall partial transfer matrix
+        This is reqired before calculating overall transfer matrix
+        """
         overallPartial = np.identity(4)
         for s in self.structures:
             s.setKx(self.Kx)
@@ -663,7 +672,10 @@ class OptSystem():
         self.overallPartial = overallPartial  
         
     def getTransferMatrix(self):
+        """Calculate the overall transfer matrix of the optical system and update
+        the prop property of the optSystem instance
         
+        Return: overall transfer matrix (4 by 4)"""
         frontinv = self.frontHalfSpace.getTransitionMatrix(self.Kx,self.wl, inv = True)
         back = self.backHalfSpace.getTransitionMatrix(self.Kx, self.wl)
         self.transferMatrix = frontinv.dot(self.overallPartial.dot(back))
@@ -671,6 +683,7 @@ class OptSystem():
         return self.transferMatrix
     
     def getSubStructureInfo(self):
+        """Print out the information about structures in the optsystem instance"""
         index = 0
         for s in self.structures:
             index += 1
@@ -685,6 +698,9 @@ class OptSystem():
             self.structures[i].setPitch(pitchList[i])
             
     def setThickness(self, tList):
+        """Set the thickness of all structures
+        tList: a list containing the thicknesses of the structures in structures
+        """
         if type(tList) == int:
             tList = [tList]
             

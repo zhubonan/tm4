@@ -9,6 +9,7 @@ import scipy as sp
 import numpy as np
 import mathFunc as mfc
 import matplotlib.pyplot as pl
+from functools import lru_cache
 #%%
 class customCall:
     """A convenient class to overlording calls to a object. It is used in Material
@@ -340,8 +341,9 @@ class Structure():
     A superclass represent a type of structure
     """
     Kx = None
+    wl = None
     propagtor = Propagator(method = 'eig')
-    material = None
+    m = None
     def __init__(self):
         raise NotImplementedError
         
@@ -373,7 +375,7 @@ class Structure():
 
     def setThickness(self, t):
         self.t = t
-        
+    
 class HomogeneousStructure(Structure):
     
     sType = 'homo'
@@ -397,6 +399,205 @@ class HomogeneousStructure(Structure):
         """Get infomation of the structure"""
         return {"Type":"Homegeneous", "TotalThickness": self.t}
         
+#%%        
+class HeliCoidalStructure(Structure):
+    """A structure class represent the helicoidal structure"""
+    
+    _hasRemainder = False
+    sType = 'helix'
+    #wl = None #dont specify wavelength initially
+
+    def __init__(self, material, pitch, t, d= 30, handness = 'left', Phi = 0):
+        """
+        Initialise the structure by passing material pitch, total thickness. 
+        Division per pitch is default as 30. This class will spit the helix into 
+        integer number of repeating units and a remainder. Allowign fast
+        calculation. Note the thickness per slice may be difference in remainder and the 
+        repeating unit.
+        Handness is left by default
+        """
+        self.d = d
+        self.sliceThickness = pitch / d
+        self.p = pitch
+        self.t = t
+        self.m = material
+        self.Phi = Phi
+        # Set handness of the helix
+        if handness == 'left':
+            self._handness = -1
+        elif handness == 'right':
+            self._handness = 1
+        else: raise RuntimeError('Handness need to be either left or right')
+        
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
+        
+    def setPitch(self, pitch):
+        """set the pitch of the helix"""
+        self.p = pitch
+        self.sliceThickness = pitch / self.d
+        
+    def setThickness(self, t):
+        """set the thicknes of the helix"""
+        self.t = t
+        
+
+###### Cacalculation for preparation of getting the partial transfer matrix #####
+    def calcAngles(self):
+        """Calculate the angles. This is used by self.constructEpsilon"""
+        # Calculate the angles
+        self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
+                                           endpoint = False) + self.Phi
+        self.nOfReapting = int(self.t/self.p)
+        remain = np.remainder(self.t, self.p)
+        if remain != 0:
+            self._hasRemainder = True
+            self.anglesRemaining = np.linspace(0, remain/self.p*np.pi*self._handness,
+                                               int(self.d/self.p*remain)+1, endpoint = False)#
+            self.anglesRemaining += self.Phi
+            self.sliceThicknessRemainer = remain/(int(self.d/self.p*remain)+1)
+
+    def constructEpsilon(self, wl = None):
+        """Build the epsilon for each layer"""
+        self.calcAngles()
+        self.wl = wl
+        epsilon = self.m.getTensor(wl)
+        self.epsilonRepeating = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRepeating]
+        if self._hasRemainder:
+            self.epsilonRemaining = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRemaining]
+        
+    def constructDelta(self):
+        """Build the Delta matrix in Berreman's formulation"""
+        self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
+        if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
+            
+###### CORE algorithium : calculating the partial transfer matrix ###### 
+    def getPartialTransfer(self, q = None, updateEpsilon = True):
+        """
+        Build the partial transfer matrix, need to input wl and q
+        """
+        #Constructed needed matrices
+
+        #Update the dielectric tensor stack. Can be supressed if needed e.g. at
+        # a different psy angle
+        if updateEpsilon:    
+            self.constructEpsilon(self.wl)
+        self.constructDelta()
+        #Get propagation matrices, require devision thickness the wl has the same
+        #unit. This effectively scales the problem
+        k0 = 2*np.pi/self.wl
+        PMatricesRepeating = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
+                              in self.deltaRepeating]
+        self.P = PMatricesRepeating
+        
+        if self._hasRemainder:
+            PMatricesRemaining = [self.propagtor(delta, self.sliceThicknessRemainer, k0, q) for delta in 
+                                  self.deltaRemaining]
+        #Calculate the overall partial transfer matrix
+        TRepeat = mfc.stackDot(PMatricesRepeating)
+        self.PT = TRepeat
+        if self._hasRemainder:
+            TRemain = mfc.stackDot(PMatricesRemaining)
+        else: TRemain = np.identity(4) 
+        self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
+        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx}
+        return self.partialTransfer.copy()
+        
+        
+
+#%%
+
+
+class Helix(Structure):
+    """A general class representing a segment of helix"""
+    
+    _hasRemainder = False
+    sType = 'helix'
+    #wl = None #dont specify wavelength initially
+
+    def __init__(self, material, pitch, t, d, handness = 'left', aor = 0):
+        """
+        input arguments:
+            
+            material: material of the structure
+            
+            pitch: pitch of the helix
+            
+            d: number of division of the helix. Default is 30
+            
+            aor: intrinsic angle of rotation of the helix
+        """
+        self.d = d
+        self.sliceThickness = pitch / d
+        self.p = pitch
+        self.t = t
+        self.m = material
+        self.aor = aor
+        self.Phi = 0
+        # Set handness of the helix
+        if handness == 'left':
+            self._handness = -1
+        elif handness == 'right':
+            self._handness = 1
+        else: raise RuntimeError('Handness need to be either left or right')
+        
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"Helix", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
+        
+    def setPitch(self, pitch):
+        """set the pitch of the helix"""
+        self.p = pitch
+        self.sliceThickness = pitch / self.d
+        
+    def setThickness(self, t):
+        """set the thicknes of the helix"""
+        self.t = t
+        
+###### Cacalculation for preparation of getting the partial transfer matrix #####
+    @staticmethod
+    @lru_cache(maxsize = 32)
+    def _getEpsilon(material, wl, p, t, d, handness, aor):
+        """Build the epsilon for each layer"""
+        endAngle = t / p * handness * np.pi
+        angles = np.linspace(0, endAngle, d, endpoint = False) + aor
+        # This is the epsilon in the frame where principle axies are aligned with xyz
+        epsilon = material.getTensor(wl)
+        # ANY CHANCE of the optimising this?
+        return [mfc.rotedEpsilon(epsilon, theta) for theta in angles]
+        
+    def _getDelta(self):
+        """Build the Delta matrix in Berreman's formulation"""
+        # Use self.aor - self.Phi to take rotation of the helix and viewing angle in to account
+        # Note increasing viewing azmuthal angle is equivalent to DECREASING intrinsic rotation angle
+        epsilonList = self._getEpsilon(self.m, self.wl, self.p, self.t, 
+                                       self.d, self._handness, self.aor - self.Phi)
+        return [mfc.buildDeltaMatrix(e, self.Kx) for e in epsilonList]
+            
+###### CORE algorithium : calculating the partial transfer matrix ###### 
+    def getPartialTransfer(self, q = None, updateEpsilon = True):
+        """
+        Build the partial transfer matrix, need to input wl and q
+        """
+        #Constructed needed matrices
+
+        #Update the dielectric tensor stack.
+
+        self.delta = self._getDelta()
+        #Get propagation matrices, require devision thickness the wl has the same
+        #unit. This effectively scales the problem
+        k0 = 2*np.pi/self.wl
+        PMatrices = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
+                              in self.delta]
+        self.P = PMatrices
+        return  mfc.stackDot(PMatrices)
+        
+        
+        
+#%%
 class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
     Phi = 0 #Set the angle phy to be zero in the start
@@ -462,108 +663,7 @@ class AnyHeliCoidalStructure(Structure):
         
         return self.partialTransfer
         
-class HeliCoidalStructure(Structure):
-    """A structure class represent the helicoidal structure"""
-    
-    _hasRemainder = False
-    sType = 'helix'
-    #wl = None #dont specify wavelength initially
-
-    
-    def __init__(self, material, pitch, t, d= 30, handness = 'left', Phi = 0):
-        """
-        Initialise the structure by passing material pitch, total thickness. 
-        Division per pitch is default as 30. This class will spit the helix into 
-        integer number of repeating units and a remainder. Allowign fast
-        calculation. Note the thickness per slice may be difference in remainder and the 
-        repeating unit.
-        Handness is left by default
-        """
-        self.d = d
-        self.sliceThickness = pitch / d
-        self.p = pitch
-        self.t = t
-        self.m = material
-        self.Phi = Phi
-        # Set handness of the helix
-        if handness == 'left':
-            self._handness = -1
-        elif handness == 'right':
-            self._handness = 1
-        else: raise RuntimeError('Handness need to be either left or right')
         
-    def getInfo(self):
-        """Get infomation of the structure"""
-        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
-        
-    def setPitch(self, pitch):
-        """set the pitch of the helix"""
-        self.p = pitch
-        self.sliceThickness = pitch / self.d
-        
-    def setThickness(self, t):
-        """set the thicknes of the helix"""
-        self.t = t
-        
-    def calcAngles(self):
-        # Calculate the angles
-        self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
-                                           endpoint = False) + self.Phi
-        self.nOfReapting = int(self.t/self.p)
-        remain = np.remainder(self.t, self.p)
-        if remain != 0:
-            self._hasRemainder = True
-            self.anglesRemaining = np.linspace(0, remain/self.p*np.pi*self._handness,
-                                               int(self.d/self.p*remain)+1, endpoint = False)#
-            self.anglesRemaining += self.Phi
-            self.sliceThicknessRemainer = remain/(int(self.d/self.p*remain)+1)
-
-    def constructEpsilon(self,wl = None):
-        """Build the epsilon for each layer"""
-        self.calcAngles()
-        self.wl = wl
-        epsilon = self.m.getTensor(wl)
-        self.epsilonRepeating = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRepeating]
-        if self._hasRemainder:
-            self.epsilonRemaining = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRemaining]
-        
-    def constructDelta(self):
-        """Build the Delta matrix in Berreman's formulation"""
-        self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
-        if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
-        
-    def getPartialTransfer(self, q = None, updateEpsilon = True):
-        """
-        Build the partial transfer matrix, need to input wl and q
-        """
-        #Constructed needed matrices
-
-        #Update the dielectric tensor stack. Can be supressed if needed e.g. at
-        # a different psy angle
-        if updateEpsilon:    
-            self.constructEpsilon(self.wl)
-        self.constructDelta()
-        #Get propagation matrices, require devision thickness the wl has the same
-        #unit. This effectively scales the problem
-        k0 = 2*np.pi/self.wl
-        PMatricesRepeating = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
-                              in self.deltaRepeating]
-        self.P = PMatricesRepeating
-        
-        if self._hasRemainder:
-            PMatricesRemaining = [self.propagtor(delta, self.sliceThicknessRemainer, k0, q) for delta in 
-                                  self.deltaRemaining]
-        #Calculate the overall partial transfer matrix
-        TRepeat = mfc.stackDot(PMatricesRepeating)
-        self.PT = TRepeat
-        if self._hasRemainder:
-            TRemain = mfc.stackDot(PMatricesRemaining)
-        else: TRemain = np.identity(4) 
-        self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
-        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx}
-        return self.partialTransfer.copy()
-    
 class customHeliCoidal(HeliCoidalStructure):
     """A  non standard helicoidal strucuture"""
     

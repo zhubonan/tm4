@@ -401,13 +401,12 @@ class HomogeneousStructure(Structure):
         
 #%%        
 class HeliCoidalStructure(Structure):
-    """A structure class represent the helicoidal structure"""
     
     _hasRemainder = False
     sType = 'helix'
     #wl = None #dont specify wavelength initially
 
-    def __init__(self, material, pitch, t, d= 30, handness = 'left', Phi = 0):
+    def __init__(self, material, pitch, t, d= 30, handness = 'left', aor = 0):
         """
         Initialise the structure by passing material pitch, total thickness. 
         Division per pitch is default as 30. This class will spit the helix into 
@@ -417,11 +416,11 @@ class HeliCoidalStructure(Structure):
         Handness is left by default
         """
         self.d = d
-        self.sliceThickness = pitch / d
         self.p = pitch
         self.t = t
         self.m = material
-        self.Phi = Phi
+        self.Phi = 0
+        self.aor = aor
         # Set handness of the helix
         if handness == 'left':
             self._handness = -1
@@ -437,87 +436,34 @@ class HeliCoidalStructure(Structure):
     def setPitch(self, pitch):
         """set the pitch of the helix"""
         self.p = pitch
-        self.sliceThickness = pitch / self.d
         
     def setThickness(self, t):
         """set the thicknes of the helix"""
         self.t = t
         
 
-###### Cacalculation for preparation of getting the partial transfer matrix #####
-    def calcAngles(self):
-        """Calculate the angles. This is used by self.constructEpsilon"""
-        # Calculate the angles
-        self.anglesRepeating = np.linspace(0, np.pi * self._handness, self.d, 
-                                           endpoint = False) + self.Phi
-        self.nOfReapting = int(self.t/self.p)
-        remain = np.remainder(self.t, self.p)
-        if remain != 0:
-            self._hasRemainder = True
-            self.anglesRemaining = np.linspace(0, remain/self.p*np.pi*self._handness,
-                                               int(self.d/self.p*remain)+1, endpoint = False)#
-            self.anglesRemaining += self.Phi
-            self.sliceThicknessRemainer = remain/(int(self.d/self.p*remain)+1)
-
-    def constructEpsilon(self, wl = None):
-        """Build the epsilon for each layer"""
-        self.calcAngles()
-        self.wl = wl
-        epsilon = self.m.getTensor(wl)
-        self.epsilonRepeating = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRepeating]
-        if self._hasRemainder:
-            self.epsilonRemaining = [mfc.rotedEpsilon(epsilon, theta) for theta in self.anglesRemaining]
-        
-    def constructDelta(self):
-        """Build the Delta matrix in Berreman's formulation"""
-        self.deltaRepeating = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRepeating]
-        if self._hasRemainder: self.deltaRemaining = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilonRemaining]
-            
-###### CORE algorithium : calculating the partial transfer matrix ###### 
     def getPartialTransfer(self, q = None, updateEpsilon = True):
         """
         Build the partial transfer matrix, need to input wl and q
         """
-        #Constructed needed matrices
-
-        #Update the dielectric tensor stack. Can be supressed if needed e.g. at
-        # a different psy angle
-        if updateEpsilon:    
-            self.constructEpsilon(self.wl)
-        self.constructDelta()
-        #Get propagation matrices, require devision thickness the wl has the same
-        #unit. This effectively scales the problem
-        k0 = 2*np.pi/self.wl
-        PMatricesRepeating = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
-                              in self.deltaRepeating]
-        self.P = PMatricesRepeating
-        
-        if self._hasRemainder:
-            PMatricesRemaining = [self.propagtor(delta, self.sliceThicknessRemainer, k0, q) for delta in 
-                                  self.deltaRemaining]
-        #Calculate the overall partial transfer matrix
-        TRepeat = mfc.stackDot(PMatricesRepeating)
-        self.PT = TRepeat
-        if self._hasRemainder:
-            TRemain = mfc.stackDot(PMatricesRemaining)
-        else: TRemain = np.identity(4) 
-        self.partialTransfer = np.linalg.matrix_power(TRepeat, self.nOfReapting).dot(TRemain)
-        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx}
-        return self.partialTransfer.copy()
-        
-        
-
-#%%
+        r = np.remainder(self.t,self.p)
+        unit = Helix(self.m, self.p, self.p, self.d, self._handness, self.aor)
+        remainder = Helix(self.m, self.p, r , self.d, self._handness, self.aor)
+        # Copy properties
+        unit.wl, remainder.wl = self.wl, self.wl
+        unit.Phi, remainder.Phi = self.Phi, self.Phi
+        unit.Kx, remainder.Kx = self.Kx, self.Kx
+        unitT = unit.getPartialTransfer(None)
+        remainderT = remainder.getPartialTransfer(None)
+        return np.linalg.matrix_power(unitT, int(self.t/self.p)).dot(remainderT)
 
 
 class Helix(Structure):
-    """A general class representing a segment of helix"""
-    
     _hasRemainder = False
     sType = 'helix'
     #wl = None #dont specify wavelength initially
 
-    def __init__(self, material, pitch, t, d, handness = 'left', aor = 0):
+    def __init__(self, material, pitch, t, d, handness, aor = 0):
         """
         input arguments:
             
@@ -537,11 +483,7 @@ class Helix(Structure):
         self.aor = aor
         self.Phi = 0
         # Set handness of the helix
-        if handness == 'left':
-            self._handness = -1
-        elif handness == 'right':
-            self._handness = 1
-        else: raise RuntimeError('Handness need to be either left or right')
+        self._handness = handness
         
     def getInfo(self):
         """Get infomation of the structure"""
@@ -578,10 +520,12 @@ class Helix(Structure):
         return [mfc.buildDeltaMatrix(e, self.Kx) for e in epsilonList]
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
-    def getPartialTransfer(self, q = None, updateEpsilon = True):
+    def getPartialTransfer(self, q = None):
         """
         Build the partial transfer matrix, need to input wl and q
         """
+        if self.t == 0:
+            return np.identity(4)
         #Constructed needed matrices
 
         #Update the dielectric tensor stack.

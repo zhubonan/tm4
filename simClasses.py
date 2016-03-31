@@ -366,6 +366,9 @@ class Structure():
     def getInfo():
         """A method to get info of the structure"""
         raise NotImplementedError
+    def setOpticalParas():
+        """A method to set up optical parameters"""
+        raise NotImplementedError
         
     def setKx(self, Kx):
         self.Kx = Kx
@@ -400,62 +403,7 @@ class HomogeneousStructure(Structure):
         return {"Type":"Homegeneous", "TotalThickness": self.t}
         
 #%%        
-class HeliCoidalStructure(Structure):
-    
-    _hasRemainder = False
-    sType = 'helix'
-    #wl = None #dont specify wavelength initially
 
-    def __init__(self, material, pitch, t, d= 30, handness = 'left', aor = 0):
-        """
-        Initialise the structure by passing material pitch, total thickness. 
-        Division per pitch is default as 30. This class will spit the helix into 
-        integer number of repeating units and a remainder. Allowign fast
-        calculation. Note the thickness per slice may be difference in remainder and the 
-        repeating unit.
-        Handness is left by default
-        """
-        self.d = d
-        self.p = pitch
-        self.t = t
-        self.m = material
-        self.Phi = 0
-        self.aor = aor
-        # Set handness of the helix
-        if handness == 'left':
-            self._handness = -1
-        elif handness == 'right':
-            self._handness = 1
-        else: raise RuntimeError('Handness need to be either left or right')
-        
-    def getInfo(self):
-        """Get infomation of the structure"""
-        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
-        
-    def setPitch(self, pitch):
-        """set the pitch of the helix"""
-        self.p = pitch
-        
-    def setThickness(self, t):
-        """set the thicknes of the helix"""
-        self.t = t
-        
-
-    def getPartialTransfer(self, q = None, updateEpsilon = True):
-        """
-        Build the partial transfer matrix, need to input wl and q
-        """
-        r = np.remainder(self.t,self.p)
-        unit = Helix(self.m, self.p, self.p, self.d, self._handness, self.aor)
-        remainder = Helix(self.m, self.p, r , self.d, self._handness, self.aor)
-        # Copy properties
-        unit.wl, remainder.wl = self.wl, self.wl
-        unit.Phi, remainder.Phi = self.Phi, self.Phi
-        unit.Kx, remainder.Kx = self.Kx, self.Kx
-        unitT = unit.getPartialTransfer(None)
-        remainderT = remainder.getPartialTransfer(None)
-        return np.linalg.matrix_power(unitT, int(self.t/self.p)).dot(remainderT)
 
 
 class Helix(Structure):
@@ -499,6 +447,20 @@ class Helix(Structure):
         """set the thicknes of the helix"""
         self.t = t
         
+    def setOpticalParas(self, wl, Theta = 0, Phi = 0):
+        """Set up the optical parameters
+        
+        wl: wavelength of incident light
+        
+        Theta: incident angle
+        
+        Phi: azimuthal angle
+        """
+        self.wl = wl
+        self.Kx = 2 * np.pi / wl * np.sin(Theta)
+        self.Phi = Phi
+        self.Theta = Theta
+        
 ###### Cacalculation for preparation of getting the partial transfer matrix #####
     @staticmethod
     @lru_cache(maxsize = 32)
@@ -524,12 +486,10 @@ class Helix(Structure):
         """
         Build the partial transfer matrix, need to input wl and q
         """
+        # If the thickness is zero, return the identity as the partial transfer matrix
         if self.t == 0:
             return np.identity(4)
-        #Constructed needed matrices
-
-        #Update the dielectric tensor stack.
-
+            
         self.delta = self._getDelta()
         #Get propagation matrices, require devision thickness the wl has the same
         #unit. This effectively scales the problem
@@ -540,6 +500,47 @@ class Helix(Structure):
         return  mfc.stackDot(PMatrices)
         
         
+class HeliCoidalStructure(Helix):
+    
+    _hasRemainder = False
+    sType = 'helix'
+    #wl = None #dont specify wavelength initially
+
+    def __init__(self, material, pitch, t, d= 30, handness = 'left', aor = 0):
+        """
+        Constructor for HeliCoidalStucture class
+        
+        t: Total thickness of the structure
+        
+        d: divisions per pitch/remainder unit
+        """
+        # Set handness of the helix
+        if handness == 'left':
+            self._handness = -1
+        elif handness == 'right':
+            self._handness = 1
+        else: raise RuntimeError('Handness need to be either left or right')
+        
+        Helix.__init__(self, material, pitch, t, d, self._handness, aor = 0)
+        
+    def getInfo(self):
+        """Get infomation of the structure"""
+        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
+        "Handness":self._handness, "TotalThickness": self.t}
+        
+    def getPartialTransfer(self, q = None, updateEpsilon = True):
+        """
+        Build the partial transfer matrix, need to input wl and q
+        """
+        r = np.remainder(self.t,self.p)
+        unit = Helix(self.m, self.p, self.p, self.d, self._handness, self.aor)
+        remainder = Helix(self.m, self.p, r , self.d, self._handness, self.aor)
+        # Copy properties
+        unit.setOpticalParas(self.wl, self.Theta, self.Phi)
+        remainder.setOpticalParas(self.wl, self.Theta, self.Phi)
+        unitT = unit.getPartialTransfer(None)
+        remainderT = remainder.getPartialTransfer(None)
+        return np.linalg.matrix_power(unitT, int(self.t/self.p)).dot(remainderT)
         
 #%%
 class AnyHeliCoidalStructure(Structure):
@@ -710,6 +711,7 @@ class OptSystem():
             s.setKx(self.Kx)
             s.setWl(self.wl)
             s.Phi = self.Phi
+            s.Theta = self.Theta
             s.getPartialTransfer()
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
@@ -780,26 +782,6 @@ air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)
 
 if __name__ == "__main__":
-#%%    
-    
-    air = HomogeneousNondispersiveMaterial(1)
-    glass = HomogeneousNondispersiveMaterial(1.5)
-    celloluse = UniaxialMaterial(1.60,1.55)
-    helix = HeliCoidalStructure(celloluse, 300, 30, 300)
-    helixDouble = HeliCoidalStructure(celloluse, 100,10,200)
-    slab = HomogeneousStructure(250 , glass)
-    setup = OptSystem()
-    front = IsotropicHalfSpace(air)
-    back = IsotropicHalfSpace(air)
-    setup.setHalfSpaces(front,back)
-    #%%
-    setup.setStructure([helix])
-    result = []
-    wavelength = np.linspace(200,1000,100)
-    for wl in wavelength:
-        setup.setIncidence(wl)
-        setup.updateStructurePartialTransfer()
-        setup.getTransferMatrix()
-        result.append(setup.prop.RC[0,0])
-    pl.plot(wavelength,result)
+#%%
+    from preset import *
     

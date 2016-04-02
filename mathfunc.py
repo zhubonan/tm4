@@ -22,9 +22,18 @@ def rotZ(theta):
     return rot
 
 def rotedEpsilon(Epsilon, theta):
-    """Return an epsilon of an material rotated by theta degrees"""
+    """Return an epsilon of an material rotated by theta degree with z as the rotation matrix"""
     return rotZ(theta).dot(Epsilon.dot(rotZ(-theta)))
     
+    
+def rotVTheta(v, theta):
+    """Return the rotation matrix for rotation against a unit vector v and angel theta"""
+    v = normalise(v) # we first normalise the vector
+    w = np.array([[0, -v[2], v[1]],
+                  [v[2], 0, -v[0]],
+                  [-v[1], v[0], 0]])
+    return np.cos(theta) * np.identity(3) + np.sin(theta) * w + (1 - np.cos(theta)) *\
+    np.outer(v,v)
     
 def stackDot(array):
     """

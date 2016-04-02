@@ -340,10 +340,7 @@ class Structure():
     """
     A superclass represent a type of structure
     """
-    Kx = None
-    wl = None
     propagtor = Propagator(method = 'eig')
-    m = None
     def __init__(self):
         raise NotImplementedError
         
@@ -366,7 +363,7 @@ class Structure():
     def getInfo():
         """A method to get info of the structure"""
         raise NotImplementedError
-    def setOpticalParas():
+    def setOptParas():
         """A method to set up optical parameters"""
         raise NotImplementedError
         
@@ -405,13 +402,12 @@ class HomogeneousStructure(Structure):
 #%%        
 
 
-
 class Helix(Structure):
     _hasRemainder = False
     sType = 'helix'
     #wl = None #dont specify wavelength initially
 
-    def __init__(self, material, pitch, t, d, handness, aor = 0):
+    def __init__(self):
         """
         input arguments:
             
@@ -423,31 +419,32 @@ class Helix(Structure):
             
             aor: intrinsic angle of rotation of the helix
         """
-        self.d = d
-        self.sliceThickness = pitch / d
-        self.p = pitch
-        self.t = t
-        self.m = material
-        self.aor = aor
-        self.Phi = 0
         # Set handness of the helix
-        self._handness = handness
+        self.tiltParas = {'tilt': False}
+        self.phyParas = None
+        self.optParas = None
+
+    def setPhyParas(self, material, pitch, t, d, handness, aor = 0):
+        """Set the physical parameters of the class"""
+        self.phyParas = {'Description':'General Helix', 'd':d , 
+        'sliceThickness': pitch / d, 'p': pitch, 't': t,
+        'm': material, 'aor': aor, 'handness': handness}
         
     def getInfo(self):
         """Get infomation of the structure"""
-        return {"Type":"Helix", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
+        return self.phyParas
         
     def setPitch(self, pitch):
         """set the pitch of the helix"""
-        self.p = pitch
-        self.sliceThickness = pitch / self.d
+        d = self.phyParas['d']
+        newParas = {'p':pitch, 'sliceThickness': pitch / d}
+        self.phyParas.update(newParas)
         
     def setThickness(self, t):
         """set the thicknes of the helix"""
-        self.t = t
+        self.phyParas['t'] = t
         
-    def setOpticalParas(self, wl, Theta = 0, Phi = 0):
+    def setOptParas(self, wl, Theta = 0, Phi = 0):
         """Set up the optical parameters
         
         wl: wavelength of incident light
@@ -456,11 +453,21 @@ class Helix(Structure):
         
         Phi: azimuthal angle
         """
-        self.wl = wl
-        self.Kx = 2 * np.pi / wl * np.sin(Theta)
-        self.Phi = Phi
-        self.Theta = Theta
-        
+        Kx = 2 * np.pi / wl * np.sin(Theta)
+        self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi,'Theta': Theta}
+         
+    def setTilt(self, tiltAngle, tiltAxis):
+        """Set the tilting parameters"""
+        if tiltAngle != 0:
+            newParas = {'tiltAngle': tiltAngle, 'tiltAxis': tiltAxis, 
+            'tiltMatrix': mfc.rotVTheta(tiltAxis, tiltAngle), 
+            'tiltMatrixInv':  mfc.rotVTheta(tiltAxis, -tiltAngle), 
+            'tilt': True, 'tiltedPitch': self.phyParas['p']/np.cos(tiltAngle)}
+            # Note tilting effectively increase the pitch of the helix
+            self.tiltParas.update(newParas)
+        else:
+            return
+            
 ###### Cacalculation for preparation of getting the partial transfer matrix #####
     @staticmethod
     @lru_cache(maxsize = 32)
@@ -471,15 +478,24 @@ class Helix(Structure):
         # This is the epsilon in the frame where principle axies are aligned with xyz
         epsilon = material.getTensor(wl)
         # ANY CHANCE of the optimising this?
-        return [mfc.rotedEpsilon(epsilon, theta) for theta in angles]
+        return np.array([mfc.rotedEpsilon(epsilon, theta) for theta in angles])
         
     def _getDelta(self):
         """Build the Delta matrix in Berreman's formulation"""
         # Use self.aor - self.Phi to take rotation of the helix and viewing angle in to account
         # Note increasing viewing azmuthal angle is equivalent to DECREASING intrinsic rotation angle
-        epsilonList = self._getEpsilon(self.m, self.wl, self.p, self.t, 
-                                       self.d, self._handness, self.aor - self.Phi)
-        return [mfc.buildDeltaMatrix(e, self.Kx) for e in epsilonList]
+        p = self.phyParas
+        o = self.optParas
+        epsilonList = self._getEpsilon(p['m'], o['wl'], p['p'], p['t'], 
+                                       p['d'], p['handness'], p['aor'] - o['Phi'])
+        # We want to change the epsilons for each layer if the helix is tilted
+        if self.tiltParas['tilt'] == True:
+            tiltMatrix = self.tiltParas['tiltMatrix']
+            tiltMatrixInv = self.tiltParas['tiltMatrixInv']
+            epsilonList = tiltMatrix.dot(epsilonList.dot(tiltMatrixInv))
+            epsilonList = self._getEpsilon(p['m'], o['wl'], self.tiltParas['tiltedPitch']
+            , p['t'], p['d'], p['handness'], p['aor'] - o['Phi'])
+        return [mfc.buildDeltaMatrix(e, o['Kx']) for e in epsilonList]
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
     def getPartialTransfer(self, q = None):
@@ -487,19 +503,22 @@ class Helix(Structure):
         Build the partial transfer matrix, need to input wl and q
         """
         # If the thickness is zero, return the identity as the partial transfer matrix
-        if self.t == 0:
+        p = self.phyParas
+        o = self.optParas
+        if p['t'] == 0:
             return np.identity(4)
             
         self.delta = self._getDelta()
         #Get propagation matrices, require devision thickness the wl has the same
         #unit. This effectively scales the problem
-        k0 = 2*np.pi/self.wl
-        PMatrices = [self.propagtor(delta, self.sliceThickness, k0, q) for delta
+        k0 = 2*np.pi/o['wl']
+        PMatrices = [self.propagtor(delta, p['sliceThickness'], k0, q) for delta
                               in self.delta]
         self.P = PMatrices
+        #Take dot product for all 4x4 slices the first axis 
         return  mfc.stackDot(PMatrices)
-        
-        
+            
+
 class HeliCoidalStructure(Helix):
     
     _hasRemainder = False
@@ -516,31 +535,32 @@ class HeliCoidalStructure(Helix):
         """
         # Set handness of the helix
         if handness == 'left':
-            self._handness = -1
+           h = -1
         elif handness == 'right':
-            self._handness = 1
+            h = 1
         else: raise RuntimeError('Handness need to be either left or right')
-        
-        Helix.__init__(self, material, pitch, t, d, self._handness, aor = 0)
-        
-    def getInfo(self):
-        """Get infomation of the structure"""
-        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
+        Helix.__init__(self)
+        self.setPhyParas(material, pitch, t, d, h, aor = 0)
         
     def getPartialTransfer(self, q = None, updateEpsilon = True):
         """
         Build the partial transfer matrix, need to input wl and q
         """
-        r = np.remainder(self.t,self.p)
-        unit = Helix(self.m, self.p, self.p, self.d, self._handness, self.aor)
-        remainder = Helix(self.m, self.p, r , self.d, self._handness, self.aor)
+        p = self.phyParas
+        t = self.tiltParas
+        o = self.optParas
+        r = np.remainder(p['t'], p['p'])
+        unit, remainder = Helix(), Helix()
+        # Need to use a copy for the sub helixs
+        unit.phyParas, remainder.phyParas = p.copy(), p.copy()
+        unit.phyParas['t'], remainder.phyParas['t'] = p['p'], r
         # Copy properties
-        unit.setOpticalParas(self.wl, self.Theta, self.Phi)
-        remainder.setOpticalParas(self.wl, self.Theta, self.Phi)
+        unit.optParas, remainder.optParas = o, o
+        unit.tiltParas, remainder.tiltParas = t,t
         unitT = unit.getPartialTransfer(None)
         remainderT = remainder.getPartialTransfer(None)
-        return np.linalg.matrix_power(unitT, int(self.t/self.p)).dot(remainderT)
+        n = int(p['p']/p['t'])
+        return np.linalg.matrix_power(unitT,n).dot(remainderT)
         
 #%%
 class AnyHeliCoidalStructure(Structure):
@@ -708,10 +728,7 @@ class OptSystem():
         """
         overallPartial = np.identity(4)
         for s in self.structures:
-            s.setKx(self.Kx)
-            s.setWl(self.wl)
-            s.Phi = self.Phi
-            s.Theta = self.Theta
+            s.setOptParas(self.wl, self.Theta, self.Phi)
             s.getPartialTransfer()
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
@@ -784,4 +801,9 @@ airHalfSpace = IsotropicHalfSpace(air)
 if __name__ == "__main__":
 #%%
     from preset import *
-    
+    h1 = HeliCoidalStructure(CNC, 150, 1000)
+    h = Helix()
+    h.setPhyParas(CNC, 150, 1000,30,-1)
+    s.setStructure([h])
+    res = s.scanSpectrum(wlRange)
+    pl.plot(res[0], res[1])

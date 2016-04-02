@@ -427,7 +427,7 @@ class Helix(Structure):
     def setPhyParas(self, material, pitch, t, d, handness, aor = 0):
         """Set the physical parameters of the class"""
         self.phyParas = {'Description':'General Helix', 'd':d , 
-        'sliceThickness': pitch / d, 'p': pitch, 't': t,
+        'sliceThickness': t / d, 'p': pitch, 't': t,
         'm': material, 'aor': aor, 'handness': handness}
         
     def getInfo(self):
@@ -470,7 +470,7 @@ class Helix(Structure):
             
 ###### Cacalculation for preparation of getting the partial transfer matrix #####
     @staticmethod
-    @lru_cache(maxsize = 32)
+    @lru_cache(maxsize = 4)
     def _getEpsilon(material, wl, p, t, d, handness, aor):
         """Build the epsilon for each layer"""
         endAngle = t / p * handness * np.pi
@@ -486,15 +486,20 @@ class Helix(Structure):
         # Note increasing viewing azmuthal angle is equivalent to DECREASING intrinsic rotation angle
         p = self.phyParas
         o = self.optParas
-        epsilonList = self._getEpsilon(p['m'], o['wl'], p['p'], p['t'], 
-                                       p['d'], p['handness'], p['aor'] - o['Phi'])
         # We want to change the epsilons for each layer if the helix is tilted
         if self.tiltParas['tilt'] == True:
             tiltMatrix = self.tiltParas['tiltMatrix']
             tiltMatrixInv = self.tiltParas['tiltMatrixInv']
-            epsilonList = tiltMatrix.dot(epsilonList.dot(tiltMatrixInv))
             epsilonList = self._getEpsilon(p['m'], o['wl'], self.tiltParas['tiltedPitch']
             , p['t'], p['d'], p['handness'], p['aor'] - o['Phi'])
+            # Want to perform rotation for Nx(3,3) matrices
+            tmp = epsilonList.dot(tiltMatrixInv)
+            # 3x3 dot Nx3x3 is not what we want, fix using einstein summation convention
+            epsilonList = np.einsum('ij,ajk', tiltMatrix, tmp)
+        else:
+            epsilonList = self._getEpsilon(p['m'], o['wl'], p['p'], p['t'], 
+                                       p['d'], p['handness'], p['aor'] - o['Phi'])
+        self.e = epsilonList
         return [mfc.buildDeltaMatrix(e, o['Kx']) for e in epsilonList]
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
@@ -541,6 +546,7 @@ class HeliCoidalStructure(Helix):
         else: raise RuntimeError('Handness need to be either left or right')
         Helix.__init__(self)
         self.setPhyParas(material, pitch, t, d, h, aor = 0)
+        self.phyParas['sliceThickness'] = pitch /d 
         
     def getPartialTransfer(self, q = None, updateEpsilon = True):
         """
@@ -549,17 +555,22 @@ class HeliCoidalStructure(Helix):
         p = self.phyParas
         t = self.tiltParas
         o = self.optParas
-        r = np.remainder(p['t'], p['p'])
+        if t['tilt'] == True:
+            effPitch = t['tiltedPitch']
+        else:
+            effPitch = p['pitch']
+        r = np.remainder(p['t'], effPitch)
         unit, remainder = Helix(), Helix()
         # Need to use a copy for the sub helixs
-        unit.phyParas, remainder.phyParas = p.copy(), p.copy()
-        unit.phyParas['t'], remainder.phyParas['t'] = p['p'], r
+        unit.setPhyParas(p['m'], p['p'], effPitch, p['d'], p['handness'], p['aor'])
+        remainder.setPhyParas(p['m'],p['p'], r, p['d'], p['handness'], p['aor'])
         # Copy properties
         unit.optParas, remainder.optParas = o, o
         unit.tiltParas, remainder.tiltParas = t,t
+        self.unit, self.remainder = unit, remainder
         unitT = unit.getPartialTransfer(None)
         remainderT = remainder.getPartialTransfer(None)
-        n = int(p['p']/p['t'])
+        n = int(p['t']/effPitch)
         return np.linalg.matrix_power(unitT,n).dot(remainderT)
         
 #%%
@@ -800,10 +811,18 @@ airHalfSpace = IsotropicHalfSpace(air)
 
 if __name__ == "__main__":
 #%%
+    # For chekcing if two methods are consistent
     from preset import *
-    h1 = HeliCoidalStructure(CNC, 150, 1000)
-    h = Helix()
-    h.setPhyParas(CNC, 150, 1000,30,-1)
-    s.setStructure([h])
-    res = s.scanSpectrum(wlRange)
-    pl.plot(res[0], res[1])
+    for aor in [0,np.pi/6,np.pi/3,np.pi/2]:
+        h1 = HeliCoidalStructure(CNC, 150, 3000, aor = aor)
+        h1.setTilt(np.pi/6,[0,1,0])
+        h = Helix()
+        h.setPhyParas(CNC, 150, 3000,300,-1, aor = aor)
+        h.setTilt(np.pi/6,[0,1,0])
+        s.setStructure([h])
+        res0 = s.scanSpectrum(wlRange)
+        #s.setStructure([h])
+        #res1 = s.scanSpectrum(wlRange)
+        pl.plot(res0[0], res0[1])
+        #pl.plot(res1[0], res1[1])
+        #h1.unit.e == h.e[0:30]

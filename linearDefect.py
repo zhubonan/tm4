@@ -141,12 +141,18 @@ class CrossSection():
             wlList = self.wlList
         self.s.setStructure(self.tmp)
         self.s.setThickness(self.t[pointIndex])
+        ## Align each helix
+        #end = 0
+        #for i, helix in enumerate(self.s.structures):
+        #    if i > 0: helix.phyParas['aor'] = end
+        #    #print(i,end)
+        #    end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
+        #print(self.s.getSubStructureInfo(), flush = True)
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
         return result
-        
-    @staticmethod
-    def plotResult(wlList, result):
+#%% Plotting    
+def plotResult(wlList, result):
         r = result
         pl.figure(1)
         pl.subplot(211)
@@ -154,11 +160,13 @@ class CrossSection():
         pl.xlim((wlList[0], wlList[-1]))
         pl.xlabel('Wavelength /nm')
         pl.ylabel('Reflectivity(L-L)')
+        pl.title("Without helices aligned")
         pl.subplot(212)    
         pl.imshow(r, aspect = 'auto', interpolation = 'none')
         pl.legend()
         pl.show()
         return
+#%%
 def f1(x):
     return 4500 - 2 *x
     
@@ -170,18 +178,23 @@ if __name__ == '__main__':
     h1 = heli(CNC,180,1000)
     h2 = heli(CNC, 200 ,1000)
     h2.Phi = np.pi/4;
-    tmp = [h2,h1, h2]
+    h3 = heli(CNC, 200 ,1000)
+    tmp = [h2,h1, h3]
     #%% Set layer structure
     c = CrossSection(s, 5000,1000,3)
     c.setInterfaceFunction(f1,0)
     c.setInterfaceFunction(f2,1)
-    c.calcPixelConfig(50)
+    c.calcPixelConfig(200)
     c.setLayerTemplate(tmp)
     #%%
     c.setWlList(wlRange)
+    res = []
+    #for i in range(4):
+   #     res.append(c.getResultForPoint(i))
+    #c.getResultForPoint(0)
     if 1:
         t = clock()
-        pool = Pool(processes = 8)
-        res = pool.map(c.getResultForPoint, range(50))
+        pool = Pool(processes = 4)
+        res = pool.map(c.getResultForPoint, range(200))
         print(clock()-t)
-    c.plotResult(wlRange, np.array(res))
+    plotResult(wlRange, np.array(res))

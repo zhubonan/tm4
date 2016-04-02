@@ -558,7 +558,7 @@ class HeliCoidalStructure(Helix):
         if t['tilt'] == True:
             effPitch = t['tiltedPitch']
         else:
-            effPitch = p['pitch']
+            effPitch = p['p']
         r = np.remainder(p['t'], effPitch)
         unit, remainder = Helix(), Helix()
         # Need to use a copy for the sub helixs

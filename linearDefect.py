@@ -186,7 +186,6 @@ if __name__ == '__main__':
     wlRange = np.linspace(400,800,200)
     h1 = heli(CNC,180,1000)
     h2 = heli(CNC, 200 ,1000)
-    h2.Phi = np.pi/4;
     h3 = heli(CNC, 180 ,1000)
     tmp = [h2,h1, h3]
     #%% Set layer structure
@@ -202,7 +201,7 @@ if __name__ == '__main__':
    #     res.append(c.getResultForPoint(i))
     #c.getResultForPoint(0)
     from functools import partial
-    for alignment in [True, False]:
+    for alignment in [True]:
         getPoint = partial(c.getResultForPoint, align = alignment)
         if 1:
             t = clock()

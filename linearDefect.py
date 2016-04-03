@@ -183,13 +183,14 @@ def getSaveName():
     
     
 if __name__ == '__main__':
-    pitchesList = [[160,200,160], [170,200,170], [200,180,200], [200,170,200], [200,160,200]]
+    #pitchesList = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
+    pitchesList = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     for pitches in pitchesList:
         wlRange = np.linspace(400,800,200)
-        h1 = heli(CNC,pitches[1],1000)
-        h2 = heli(CNC, pitches[0] ,1000)
-        h3 = heli(CNC, pitches[2] ,1000)
-        tmp = [h2,h1, h3]
+        h1 = heli(CNC,pitches[0],1000)
+        h2 = heli(CNC, pitches[1] ,1000)
+        h3 = heli(CNC, pitches[0] ,1000)
+        tmp = [h1,h2, h3]
         #%% Set layer structure
         c = CrossSection(s, 5000,1000,3)
         c.setInterfaceFunction(f1,0)

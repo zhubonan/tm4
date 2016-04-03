@@ -183,55 +183,57 @@ def getSaveName():
     
     
 if __name__ == '__main__':
-    wlRange = np.linspace(400,800,200)
-    h1 = heli(CNC,180,1000)
-    h2 = heli(CNC, 200 ,1000)
-    h3 = heli(CNC, 180 ,1000)
-    tmp = [h2,h1, h3]
-    #%% Set layer structure
-    c = CrossSection(s, 5000,1000,3)
-    c.setInterfaceFunction(f1,0)
-    c.setInterfaceFunction(f2,1)
-    c.calcPixelConfig(200)
-    c.setLayerTemplate(tmp)
-    #%%
-    c.setWlList(wlRange)
-    res = []
-    #for i in range(4):
-   #     res.append(c.getResultForPoint(i))
-    #c.getResultForPoint(0)
-    from functools import partial
-    for alignment in [True]:
-        getPoint = partial(c.getResultForPoint, align = alignment)
-        if 1:
-            t = clock()
-            pool = Pool(processes = 7)
-            res = pool.map(getPoint, range(200))
-            np.save(getSaveName()+ "Aligen" + str(alignment), res)
-            print(clock()-t)
-        plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
-        pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
-        #%% Need to and script for plotting colour bands here
-        
-        pl.figure()
-        resArray = np.array(res)
-        spec = mt.specData(wlRange,resArray.T)
-        RGB = spec.getRGBArray()
-        pl.imshow(RGB.reshape((200,1,3)),aspect='auto', extent=[0,1,1000,0])
-        pl.ylabel("Distance /nm")
-        pl.title("RGB colour from spectrum as different distance")
-        pl.tick_params(
-        axis='x',          # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        bottom='off',      # ticks along the bottom edge are off
-        top='off',         # ticks along the top edge are off
-        labelbottom='off') # labels along the bottom edge are off
-        pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
-        
+    pitchesList = [[160,200,160], [170,200,170], [200,180,200], [200,170,200], [200,160,200]]
+    for pitches in pitchesList:
+        wlRange = np.linspace(400,800,200)
+        h1 = heli(CNC,pitches[1],1000)
+        h2 = heli(CNC, pitches[0] ,1000)
+        h3 = heli(CNC, pitches[2] ,1000)
+        tmp = [h2,h1, h3]
+        #%% Set layer structure
+        c = CrossSection(s, 5000,1000,3)
+        c.setInterfaceFunction(f1,0)
+        c.setInterfaceFunction(f2,1)
+        c.calcPixelConfig(200)
+        c.setLayerTemplate(tmp)
         #%%
-    # Close the pool
-    pool.close()
-    pool.join()
-    pl.figure()
-    c.showLayerStructure()
-    pl.savefig(getSaveName()+"Structure")
+        c.setWlList(wlRange)
+        res = []
+        #for i in range(4):
+       #     res.append(c.getResultForPoint(i))
+        #c.getResultForPoint(0)
+        from functools import partial
+        for alignment in [True]:
+            getPoint = partial(c.getResultForPoint, align = alignment)
+            if 1:
+                t = clock()
+                pool = Pool(processes = 7)
+                res = pool.map(getPoint, range(200))
+                np.save(getSaveName()+ "Aligen" + str(alignment), res)
+                print(clock()-t)
+            plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
+            pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
+            #%% Need to and script for plotting colour bands here
+            
+            pl.figure()
+            resArray = np.array(res)
+            spec = mt.specData(wlRange,resArray.T)
+            RGB = spec.getRGBArray()
+            pl.imshow(RGB.reshape((200,1,3)),aspect='auto', extent=[0,1,1000,0])
+            pl.ylabel("Distance /nm")
+            pl.title("RGB colour from spectrum as different distance")
+            pl.tick_params(
+            axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom='off',      # ticks along the bottom edge are off
+            top='off',         # ticks along the top edge are off
+            labelbottom='off') # labels along the bottom edge are off
+            pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
+            
+            #%%
+        # Close the pool
+        pool.close()
+        pool.join()
+        pl.figure()
+        c.showLayerStructure()
+        pl.savefig(getSaveName()+"Structure")

@@ -174,15 +174,21 @@ class specData():
             gArray = np.squeeze(gArray, 2)
         except: pass
         return gArray
-        
-    def get2DColouredImage(self, show = False):
-        """Show image by converting spectrum to RGB"""
-        s, n = self.spec.shape # n is the number of spectrum
+    def getRGBArray(self):
+        """Return an Nx3 array of RGB values for each point"""
+        s, n = self.spec.shape
         RGB = np.zeros((n,3))
         for i in range(n):
             RGB[i,:] = specToRGB([self.wl, self.spec[:,i]])
-        l = int(np.sqrt(n))
-        RGBArray = RGB.reshape((l,l,3))
+        return RGB
+        
+    def get2DColouredImage(self, shape = 'auto', show = False):
+        """Show image by converting spectrum to RGB"""
+        s, n = self.spec.shape # n is the number of spectrum
+        RGB = self.getRGBArray()
+        if shape == 'auto':
+            shape = (np.sqrt(n), np.sqrt(n))
+        RGBArray = RGB.reshape(shape+(3,))
         if show:
             f = pl.figure()
             pl.imshow(RGBArray)

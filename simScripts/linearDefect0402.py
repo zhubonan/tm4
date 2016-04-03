@@ -9,8 +9,6 @@ import copy as cp
 from colourTools import specToRGB
 from multiprocessing import Pool
 from time import clock
-import time
-import matTools as mt
 pl.rcParams['figure.figsize'] = (8,6)
 pl.rcParams['savefig.dpi'] = 100
 #%%
@@ -109,13 +107,12 @@ class CrossSection():
         return self.t
         
     def showLayerStructure(self):
-        x = self.p.T
+        x = np.repeat([self.p], self.n, axis = 0).T
         # Calculate the ys to be plot
         y = np.append(self.h, np.repeat([[self.d]], len(self.p), axis = 0), axis = 1)
         pl.plot(x,y,'o-')
         pl.ylim(0,self.d+100)
-        pl.title('Cross-section with pitch '+ str([x.phyParas['p'] for x in self.tmp])
-        + " from top")
+        pl.title('Cross-section')
         pl.xlabel('distance /nm')
         pl.ylabel('Depth /nm')
         pl.show()
@@ -138,39 +135,36 @@ class CrossSection():
     def setWlList(self,wlList):
         self.wlList = wlList
         
-    def getResultForPoint(self, pointIndex, wlList = None, align = True):
+    def getResultForPoint(self, pointIndex, wlList = None):
         """This method is to be called for getting the spectrum for a certain point""" 
         if wlList == None:
             wlList = self.wlList
         self.s.setStructure(self.tmp)
         self.s.setThickness(self.t[pointIndex])
         ## Align each helix
-        if align == True:
-            end = 0
-            for i, helix in enumerate(self.s.structures):
-                if i > 0: helix.phyParas['aor'] = end
-                #print(i,end)
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
+        #end = 0
+        #for i, helix in enumerate(self.s.structures):
+        #    if i > 0: helix.phyParas['aor'] = end
+        #    #print(i,end)
+        #    end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
         #print(self.s.getSubStructureInfo(), flush = True)
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
         return result
 #%% Plotting    
-def plotResult(wlList, result, title):
+def plotResult(wlList, result):
         r = result
-        pl.figure()
-        #pl.subplot(211)
-        #pl.plot(wlList,r.T)
-        #pl.xlim((wlList[0], wlList[-1]))
-        #pl.xlabel('Wavelength /nm')
-        #pl.ylabel('Reflectivity(L-L)')
-        pl.title(title)
-        #pl.subplot(212)    
-        pl.imshow(r, cmap = 'viridis',aspect = 'auto', interpolation = 'none',
-                  extent = [wlRange[0], wlRange[-1],  1000, 0])
-        pl.xlabel("Wavelength /nm")
-        pl.ylabel("Distance /nm")
-        pl.colorbar()
+        pl.figure(1)
+        pl.subplot(211)
+        pl.plot(wlList,r.T)
+        pl.xlim((wlList[0], wlList[-1]))
+        pl.xlabel('Wavelength /nm')
+        pl.ylabel('Reflectivity(L-L)')
+        pl.title("Without helices aligned")
+        pl.subplot(212)    
+        pl.imshow(r, aspect = 'auto', interpolation = 'none')
+        pl.legend()
+        pl.show()
         return
 #%%
 def f1(x):
@@ -178,16 +172,13 @@ def f1(x):
     
 def f2(x):
     return 500 + 2 *x
-def getSaveName():
-    return "results\\" + time.strftime("%Y%m%d-%H%M%S")
-    
     
 if __name__ == '__main__':
-    wlRange = np.linspace(400,800,200)
+    wlRange = np.linspace(450,670,200)
     h1 = heli(CNC,180,1000)
     h2 = heli(CNC, 200 ,1000)
     h2.Phi = np.pi/4;
-    h3 = heli(CNC, 180 ,1000)
+    h3 = heli(CNC, 200 ,1000)
     tmp = [h2,h1, h3]
     #%% Set layer structure
     c = CrossSection(s, 5000,1000,3)
@@ -201,38 +192,9 @@ if __name__ == '__main__':
     #for i in range(4):
    #     res.append(c.getResultForPoint(i))
     #c.getResultForPoint(0)
-    from functools import partial
-    for alignment in [True, False]:
-        getPoint = partial(c.getResultForPoint, align = alignment)
-        if 1:
-            t = clock()
-            pool = Pool(processes = 7)
-            res = pool.map(getPoint, range(200))
-            np.save(getSaveName()+ "Aligen" + str(alignment), res)
-            print(clock()-t)
-        plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
-        pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
-        #%% Need to and script for plotting colour bands here
-        
-        pl.figure()
-        resArray = np.array(res)
-        spec = mt.specData(wlRange,resArray.T)
-        RGB = spec.getRGBArray()
-        pl.imshow(RGB.reshape((200,1,3)),aspect='auto', extent=[0,1,1000,0])
-        pl.ylabel("Distance /nm")
-        pl.title("RGB colour from spectrum as different distance")
-        pl.tick_params(
-        axis='x',          # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        bottom='off',      # ticks along the bottom edge are off
-        top='off',         # ticks along the top edge are off
-        labelbottom='off') # labels along the bottom edge are off
-        pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
-        
-        #%%
-    # Close the pool
-    pool.close()
-    pool.join()
-    pl.figure()
-    c.showLayerStructure()
-    pl.savefig(getSaveName()+"Structure")
+    if 1:
+        t = clock()
+        pool = Pool(processes = 4)
+        res = pool.map(c.getResultForPoint, range(200))
+        print(clock()-t)
+    plotResult(wlRange, np.array(res))

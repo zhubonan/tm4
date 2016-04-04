@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr  4 16:55:52 2016
+
+@author: Bonan
+"""
+
 """
 Python script for plotting and simulate 1-D defect structure. e.g. get sepctrum 
 along a line
@@ -140,8 +147,7 @@ class CrossSection():
                 if i > 0: helix.phyParas['aor'] = end
                 #print(i,end)
                 # Calculate the end angle, not the intrinstic anlge of rotation need to be added
-                # If it is not the case only the first interface is aligned
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi
+                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
         #print(self.s.getSubStructureInfo(), flush = True)
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
@@ -186,10 +192,9 @@ def showLayerStructure(c):
         
 #%%
 def f1(x):
-    return 4500 - 2 * x
+    return 2000 + 2 * x
     
-def f2(x):
-    return 500 + 2 * x
+
     
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
@@ -198,9 +203,9 @@ def getSaveName():
 if __name__ == '__main__':
     pitchesList1 = [[200,180],[200,180],[200,160],[180,200], [170,200], [160,200]]
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
-    pitchesList3 = [[180,150]]
-    pitchesList4 = [[180,180]]
-    tiltList = [0] * 1
+    pitchesList3 = [[150,180],[180,150]]
+    pitchesList4 = [[180,145]]
+    tiltList = [0] * 2
     nop = 200 #Number of points to sample along the defect
     for pitches, tilt in zip(pitchesList3,tiltList):
         wlRange = np.linspace(400,800,200)
@@ -208,11 +213,10 @@ if __name__ == '__main__':
         h2 = heli(CNC, pitches[1] ,1000)
         h2.setTilt(tilt,[0,1,0])
         h3 = heli(CNC, pitches[0] ,1000)
-        tmp = [h1,h2, h3]
+        tmp = [h1,h2]
         #%% Set layer structure
-        c = CrossSection(s, 5000,1000,3)
+        c = CrossSection(s, 5000,1000,2)
         c.setInterfaceFunction(f1,0)
-        c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
@@ -226,7 +230,7 @@ if __name__ == '__main__':
             getPoint = partial(c.getResultForPoint, align = alignment)
             if 1:
                 t = clock()
-                pool = Pool(processes = 3)
+                pool = Pool(processes = 7)
                 res = pool.map(getPoint, range(nop))
                 np.save(getSaveName()+ "Aligen" + str(alignment), res)
                 print(clock()-t)

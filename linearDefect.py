@@ -177,7 +177,7 @@ def showLayerStructure(c):
     pl.xlim(0,c.d+100)
     pl.ylim((c.l,0))
     pl.title('Cross-section with pitch '+ str([x.phyParas['p'] for x in c.tmp])
-    + " normal incident from right")
+    + " normal incident from right tiltAngle= " +  "{0:.2f}".format(c.tmp[1].tiltParas['tiltAngle']))
     pl.xlabel('Height from bottom /nm')
     pl.ylabel('Distance /nm')
     pl.show()
@@ -197,10 +197,13 @@ if __name__ == '__main__':
     pitchesList1 = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     pitchesList3 = [[200,180],[180,200],[210,180],[180,210]]
-    for pitches in pitchesList3:
+    pitchesList4 = [[180,180]] *3
+    tiltList = [np.pi/6,np.pi/12,np.pi/18]
+    for pitches, tilt in zip(pitchesList4,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
+        h2.setTilt(tilt,[0,1,0])
         h3 = heli(CNC, pitches[0] ,1000)
         tmp = [h1,h2, h3]
         #%% Set layer structure

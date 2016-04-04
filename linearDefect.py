@@ -108,17 +108,6 @@ class CrossSection():
         self.t = h2 - h1 # t is the array of thickness for each layer a all points
         return self.t
         
-    def showLayerStructure(self):
-        x = self.p.T
-        # Calculate the ys to be plot
-        y = np.append(self.h, np.repeat([[self.d]], len(self.p), axis = 0), axis = 1)
-        pl.plot(x,y,'o-')
-        pl.ylim(0,self.d+100)
-        pl.title('Cross-section with pitch '+ str([x.phyParas['p'] for x in self.tmp])
-        + " from top")
-        pl.xlabel('distance /nm')
-        pl.ylabel('Depth /nm')
-        pl.show()
         
     def getSpectrum(self, wlList = None, showResult = True):
         """Calculate the spectrum for each point with given list of wavelengths"""
@@ -157,52 +146,74 @@ class CrossSection():
         return result
 #%% Plotting    
 def plotResult(wlList, result, title):
-        r = result
-        pl.figure()
-        #pl.subplot(211)
-        #pl.plot(wlList,r.T)
-        #pl.xlim((wlList[0], wlList[-1]))
-        #pl.xlabel('Wavelength /nm')
-        #pl.ylabel('Reflectivity(L-L)')
-        pl.title(title)
-        #pl.subplot(212)    
-        pl.imshow(r, cmap = 'viridis',aspect = 'auto', interpolation = 'none',
-                  extent = [wlRange[0], wlRange[-1],  1000, 0])
-        pl.xlabel("Wavelength /nm")
-        pl.ylabel("Distance /nm")
-        pl.colorbar()
-        return
+    """Plot the result from a series calculation of spectrum
+    wlList is a 1D array of wavelengths.
+    
+    result: a NxW array where N is the number of calculations and W is the number
+    of wavelengths calculated
+    """
+    r = result
+    pl.figure()
+    #pl.subplot(211)
+    #pl.plot(wlList,r.T)
+    #pl.xlim((wlList[0], wlList[-1]))
+    #pl.xlabel('Wavelength /nm')
+    #pl.ylabel('Reflectivity(L-L)')
+    pl.title(title)
+    #pl.subplot(212)    
+    pl.imshow(r, cmap = 'viridis',aspect = 'auto', interpolation = 'none',
+              extent = [wlRange[0], wlRange[-1],  1000, 0])
+    pl.xlabel("Wavelength /nm")
+    pl.ylabel("Distance /nm")
+    pl.colorbar()
+    return
+
+def showLayerStructure(c):
+    pl.figure()
+    x = c.p.T
+    # Calculate the ys to be plot
+    y = np.append(c.h, np.repeat([[c.d]], len(c.p), axis = 0), axis = 1)
+    pl.plot(y,x,'o-')
+    pl.xlim(0,c.d+100)
+    pl.ylim((c.l,0))
+    pl.title('Cross-section with pitch '+ str([x.phyParas['p'] for x in c.tmp])
+    + " normal incident from right")
+    pl.xlabel('Height from bottom /nm')
+    pl.ylabel('Distance /nm')
+    pl.show()
+        
 #%%
 def f1(x):
-    return 4500 - 2 *x
+    return 4000 + 4 *x
     
 def f2(x):
-    return 500 + 2 *x
+    return 2000 + 4 *x
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
     
     
 if __name__ == '__main__':
-    #pitchesList = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
-    pitchesList = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
-    for pitches in pitchesList:
+    pitchesList1 = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
+    pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
+    pitchesList3 = [[200,180],[180,200],[210,180],[180,210]]
+    for pitches in pitchesList3:
         wlRange = np.linspace(400,800,200)
-        h1 = heli(CNC,pitches[0],1000)
+        h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
         h3 = heli(CNC, pitches[0] ,1000)
         tmp = [h1,h2, h3]
         #%% Set layer structure
-        c = CrossSection(s, 5000,1000,3)
+        c = CrossSection(s, 10000,1000,3)
         c.setInterfaceFunction(f1,0)
         c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(200)
         c.setLayerTemplate(tmp)
-        #%%
         c.setWlList(wlRange)
         res = []
         #for i in range(4):
        #     res.append(c.getResultForPoint(i))
         #c.getResultForPoint(0)
+        #%% We reserve the choice of wether align or not here
         from functools import partial
         for alignment in [True]:
             getPoint = partial(c.getResultForPoint, align = alignment)
@@ -214,12 +225,14 @@ if __name__ == '__main__':
                 print(clock()-t)
             plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
             pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
-            #%% Need to and script for plotting colour bands here
-            
-            pl.figure()
+            #%% Save plot of layer structure
+            showLayerStructure(c)
+            pl.savefig(getSaveName()+"Structure")
+            #%% Plotting the colour band figure
             resArray = np.array(res)
             spec = mt.specData(wlRange,resArray.T)
             RGB = spec.getRGBArray()
+            pl.figure()
             pl.imshow(RGB.reshape((200,1,3)),aspect='auto', extent=[0,1,1000,0])
             pl.ylabel("Distance /nm")
             pl.title("RGB colour from spectrum as different distance")
@@ -231,10 +244,7 @@ if __name__ == '__main__':
             labelbottom='off') # labels along the bottom edge are off
             pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
             
-            #%%
-        # Close the pool
+        #%% Close the pool
         pool.close()
         pool.join()
         pl.figure()
-        c.showLayerStructure()
-        pl.savefig(getSaveName()+"Structure")

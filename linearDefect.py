@@ -139,7 +139,8 @@ class CrossSection():
             for i, helix in enumerate(self.s.structures):
                 if i > 0: helix.phyParas['aor'] = end
                 #print(i,end)
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
+                # Calculate the end angle, not the intrinstic anlge of rotation need to be added
+                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']    
         #print(self.s.getSubStructureInfo(), flush = True)
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
@@ -197,8 +198,9 @@ if __name__ == '__main__':
     pitchesList1 = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     pitchesList3 = [[200,180],[180,200],[210,180],[180,210]]
-    pitchesList4 = [[180,180]] *3
-    tiltList = [np.pi/6,np.pi/12,np.pi/18]
+    pitchesList4 = [[180,180]]
+    tiltList = [0]
+    nop = 20 #Number of points to sample along the defect
     for pitches, tilt in zip(pitchesList4,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
@@ -210,11 +212,11 @@ if __name__ == '__main__':
         c = CrossSection(s, 5000,1000,3)
         c.setInterfaceFunction(f1,0)
         c.setInterfaceFunction(f2,1)
-        c.calcPixelConfig(200)
+        c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
         res = []
-        #for i in range(4):
+        #for i in range(4):c.
        #     res.append(c.getResultForPoint(i))
         #c.getResultForPoint(0)
         #%% We reserve the choice of wether align or not here
@@ -224,7 +226,7 @@ if __name__ == '__main__':
             if 1:
                 t = clock()
                 pool = Pool(processes = 7)
-                res = pool.map(getPoint, range(200))
+                res = pool.map(getPoint, range(nop))
                 np.save(getSaveName()+ "Aligen" + str(alignment), res)
                 print(clock()-t)
             plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
@@ -237,7 +239,7 @@ if __name__ == '__main__':
             spec = mt.specData(wlRange,resArray.T)
             RGB = spec.getRGBArray()
             pl.figure()
-            pl.imshow(RGB.reshape((200,1,3)),aspect='auto', extent=[0,1,1000,0])
+            pl.imshow(RGB.reshape((nop,1,3)),aspect='auto', extent=[0,1,1000,0])
             pl.ylabel("Distance /nm")
             pl.title("RGB colour from spectrum as different distance")
             pl.tick_params(

@@ -11,7 +11,7 @@ from colourTools import specToRGB
 import numpy as np
 import matplotlib.pyplot as pl
 pi = np.pi
-
+pl.rcParams['image.cmap'] = 'viridis'
 
         
 class specData():

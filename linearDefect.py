@@ -184,10 +184,11 @@ def showLayerStructure(c):
         
 #%%
 def f1(x):
-    return 4000 + 4 *x
+    return 3000 + 2 * x
     
 def f2(x):
-    return 2000 + 4 *x
+    return 1000 + 2 * x
+    
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
     
@@ -203,7 +204,7 @@ if __name__ == '__main__':
         h3 = heli(CNC, pitches[0] ,1000)
         tmp = [h1,h2, h3]
         #%% Set layer structure
-        c = CrossSection(s, 10000,1000,3)
+        c = CrossSection(s, 5000,1000,3)
         c.setInterfaceFunction(f1,0)
         c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(200)

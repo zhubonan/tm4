@@ -177,8 +177,8 @@ def showLayerStructure(c):
     pl.plot(y,x,'o-')
     pl.xlim(0,c.d+100)
     pl.ylim((c.l,0))
-    pl.title('Cross-section with pitch '+ str([x.phyParas['p'] for x in c.tmp])
-    + " normal incident from right tiltAngle= " +  "{0:.2f}".format(c.tmp[1].tiltParas['tiltAngle']))
+    pl.title('With pitch '+ str([x.phyParas['p'] for x in c.tmp])
+    + " incident from right TA= " +  "{0:.2f}".format(c.tmp[1].tiltParas['tiltAngle']))
     pl.xlabel('Height from bottom /nm')
     pl.ylabel('Distance /nm')
     pl.show()
@@ -195,13 +195,13 @@ def getSaveName():
     
     
 if __name__ == '__main__':
-    pitchesList1 = [[200,180],[200,170],[200,160],[180,200], [170,200], [160,200]]
+    pitchesList1 = [[200,180],[200,180],[200,160],[180,200], [170,200], [160,200]]
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     pitchesList3 = [[200,180],[180,200],[210,180],[180,210]]
     pitchesList4 = [[180,180]]
-    tiltList = [0]
-    nop = 20 #Number of points to sample along the defect
-    for pitches, tilt in zip(pitchesList4,tiltList):
+    tiltList = [0] * 4 
+    nop = 200 #Number of points to sample along the defect
+    for pitches, tilt in zip(pitchesList3,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)

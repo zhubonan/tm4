@@ -420,7 +420,7 @@ class Helix(Structure):
             aor: intrinsic angle of rotation of the helix
         """
         # Set handness of the helix
-        self.tiltParas = {'tilt': False}
+        self.tiltParas = {'tilt': False, 'tiltAngle': 0}
         self.phyParas = None
         self.optParas = None
 

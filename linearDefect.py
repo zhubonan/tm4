@@ -91,6 +91,8 @@ class CrossSection():
         """This will calcuate the thickness of the layers under each pixel
         
         d: divisions of the cross-section
+        
+        return t: And d x self.n array containing the thickness for d points
         """
         self.p = np.linspace(0, self.l, div) #location of the points
         # Calculate the location of interfaces
@@ -141,8 +143,9 @@ class CrossSection():
                 #print(i,end)
                 # Calculate the end angle, not the intrinstic anlge of rotation need to be added
                 # If it is not the case only the first interface is aligned
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi
-        #print(self.s.getSubStructureInfo(), flush = True)
+                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
+                + pointIndex/len(self.t) * 2* np.pi * 5
+        #print(self.s.getSubStructureInfo(), flush = True) 
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
         return result
@@ -186,10 +189,10 @@ def showLayerStructure(c):
         
 #%%
 def f1(x):
-    return 4500 - 2 * x
+    return 4000
     
 def f2(x):
-    return 500 + 2 * x
+    return 1000
     
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
@@ -222,11 +225,11 @@ if __name__ == '__main__':
         #c.getResultForPoint(0)
         #%% We reserve the choice of wether align or not here
         from functools import partial
-        for alignment in [False]:
+        for alignment in [True]:
             getPoint = partial(c.getResultForPoint, align = alignment)
             if 1:
                 t = clock()
-                pool = Pool(processes = 3)
+                pool = Pool(processes = 7)
                 res = pool.map(getPoint, range(nop))
                 np.save(getSaveName()+ "Aligen" + str(alignment), res)
                 print(clock()-t)

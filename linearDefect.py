@@ -143,8 +143,11 @@ class CrossSection():
                 #print(i,end)
                 # Calculate the end angle, not the intrinstic anlge of rotation need to be added
                 # If it is not the case only the first interface is aligned
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
-                + pointIndex/len(self.t) * 2* np.pi * 5
+                if i == 0:
+                    end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']
+                else:
+                    end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
+                    + pointIndex/len(self.t) * 2* np.pi * 5
         #print(self.s.getSubStructureInfo(), flush = True) 
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
@@ -229,7 +232,7 @@ if __name__ == '__main__':
             getPoint = partial(c.getResultForPoint, align = alignment)
             if 1:
                 t = clock()
-                pool = Pool(processes = 7)
+                pool = Pool(processes = 2)
                 res = pool.map(getPoint, range(nop))
                 np.save(getSaveName()+ "Aligen" + str(alignment), res)
                 print(clock()-t)

@@ -41,21 +41,21 @@ class OpticalProperties:
         
     def getJones(self, T):
         """Returns the Jones matrices with linear polarisation basis
-        T_ri is the Jones matrix in reflexion : [[r_pp, r_ps],
+        J_ri is the Jones matrix in reflexion : [[r_pp, r_ps],
                                                  [r_sp, r_ss]]
 
-        T_ti is the Jones matrix in transmission : [[t_pp, t_ps],
+        J_ti is the Jones matrix in transmission : [[t_pp, t_ps],
                                                     [t_sp, t_ss]]
         basis: [p, s]
         """
         # Extract element from the transfer matrix to form the Jones matrix
-        T_it = T[2::-2,2::-2]
-        T_ti = sp.linalg.inv(T_it)
-        T_rt = T[3::-2,2::-2]
+        J_it = T[2::-2,2::-2]
+        J_ti = sp.linalg.inv(J_it)
+        J_rt = T[3::-2,2::-2]
         
-        # Then we have T_ri = T_rt * T_ti
-        T_ri = np.dot(T_rt, T_ti)
-        return (T_ri, T_ti)        
+        # Then we have J_ri = J_rt * J_ti
+        J_ri = np.dot(J_rt, J_ti)
+        return (J_ri, J_ti)        
 
     def circularJones(self):
         """Returns the Jones matrices for circular polarization basis
@@ -781,7 +781,7 @@ class OptSystem():
         for i in range(len(tList)):
             self.structures[i].setThickness(tList[i])
             
-    def scanSpectrum(self, wlList, giveInfo = True, useProp = False):
+    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL'):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -796,11 +796,11 @@ class OptSystem():
             self.setIncidence(i,self.Theta,self.Phi)
             self.updateStructurePartialTransfer()
             self.getTransferMatrix()
-            if useProp:
-                result.append(self.prop)
-            else:
-                result.append(self.prop.RC[0,0].real) # take real part only
-        intel =[s.getInfo for s in self.structures]
+            if coupling == 'LL':
+                result.append(self.prop.RC[0,0].real)
+            elif coupling == 'RR':
+                result.append(self.prop.RC[1,1].real) # take real part only. Imag has some residual 
+        intel =[s.getInfo() for s in self.structures]
         if giveInfo:
             return wlList, result, intel
         else: return wlList,result

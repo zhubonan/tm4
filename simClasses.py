@@ -5,6 +5,8 @@ New class file
 @author: Bonan
 """
 from scipy.interpolate import interp1d
+from multiprocessing import Pool
+from functools import partial
 import scipy as sp
 import numpy as np
 import mathFunc as mfc
@@ -262,7 +264,7 @@ class IsotropicHalfSpace(HalfSpace):
       traveling to the left.
     """
     
-    def get_Kx_from_Theta(self, Theta, wl):
+    def getKxFromTheta(self, Theta, wl):
         """Returns the value of Kx.
         
         'Phi' : angle of the wave traveling to the right (radians)
@@ -728,7 +730,7 @@ class OptSystem():
         self.wl = wl
         # Calculate Kx from the property of front half-space, Kx is then conserved
         # throughout the whole calculation
-        self.Kx = self.frontHalfSpace.get_Kx_from_Theta(Theta, self.wl)
+        self.Kx = self.frontHalfSpace.getKxFromTheta(Theta, self.wl)
         self.Theta = Theta
         self.Phi = Phi
         
@@ -780,8 +782,19 @@ class OptSystem():
             
         for i in range(len(tList)):
             self.structures[i].setThickness(tList[i])
-            
-    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL'):
+    
+    def calcWl(self, wl, coupling):
+            """A function to be called for calculating at a certain wl"""
+            self.setIncidence(wl, self.Theta, self.Phi)
+            self.updateStructurePartialTransfer()
+            self.getTransferMatrix()
+            if coupling == 'LL':
+            # take real part only. Imag has some residual 
+                return self.prop.RC[0,0].real
+            elif coupling == 'RR':
+                return self.prop.RC[1,1].real
+    
+    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL', procs = 4):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -791,18 +804,20 @@ class OptSystem():
         of using analyser
         """
         result = []
-        for i in wlList:
-            #print("At wavelength"+ str(i))
-            self.setIncidence(i,self.Theta,self.Phi)
-            self.updateStructurePartialTransfer()
-            self.getTransferMatrix()
-            if coupling == 'LL':
-                result.append(self.prop.RC[0,0].real)
-            elif coupling == 'RR':
-                result.append(self.prop.RC[1,1].real) # take real part only. Imag has some residual 
-        intel =[s.getInfo() for s in self.structures]
+        # Initialise multiprocessing
+        # Want to terminate the processes if anything goes wrong        
+        try:
+            pool = Pool(processes = procs)
+        except:
+            pool.close()
+            pool.joint()
+            print("Child processes terminated")
+        calcWl = partial(self.calcWl, coupling = coupling)
+        result = pool.map(calcWl, wlList)#
+        pool.close()
+        pool.join()
         if giveInfo:
-            return wlList, result, intel
+            return wlList, result, self.getSubStructureInfo()
         else: return wlList,result
         
 #%%Some staff for convenience

@@ -27,12 +27,12 @@ heli = sim.HeliCoidalStructure
 h1 = heli(CNC,150,1000)
 s.setStructure([h1])
 wlRange = np.linspace(350,850,100)
-print('Followings are added to the scope')
-print('Materials: CNC, air, cellulosem, glass')
-print('HalfSpace: airhalf, glasshalf')
-print('OptSystem:s')
-print('heli as HeliCoidalStructure')
-print('wlRange as 400 to 800 nm')
+print('Followings are added to the scope', flush = True)
+print('Materials: CNC, air, cellulosem, glass', flush = True)
+print('HalfSpace: airhalf, glasshalf', flush = True)
+print('OptSystem:s', flush = True)
+print('heli as HeliCoidalStructure', flush = True)
+print('wlRange as 400 to 800 nm', flush = True)
 
 def plotSpectrum(OptSys, wlRange):
     result = OptSys.scanSpectrum(wlRange)

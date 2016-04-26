@@ -18,6 +18,18 @@ class specData():
     """Analysis spectrum from a stack of spec data"""
 
     def __init__(self, wl, spec, desc = None):
+        """
+        Construct a specData object
+        
+        wl: wavelength of the spectrum
+        
+        spec: an 1xN array or NxM array. Where N is the number of wavelengths and
+        M is the number of such spectrum
+        
+        desc: description string to be saved
+        """
+        spec = np.array(spec)
+        wl = np.array(wl)
         if len(spec.shape) == 1:
             # convect to rowVector
             spec = spec[:,np.newaxis]
@@ -26,7 +38,6 @@ class specData():
         self.wl = wl
         self.spec = spec
         self.range = [wl[0], wl[-1]]
-        self.spec = self.spec
         self.desc = desc
         
     @staticmethod

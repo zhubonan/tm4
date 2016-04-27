@@ -208,7 +208,7 @@ if __name__ == '__main__':
     pitchesList4 = [[180,180]]
     tiltList = [0] * 1
     nop = 200 #Number of points to sample along the defect
-    for pitches, tilt in zip(pitchesList3,tiltList):
+    for pitches, tilt in zip(pitchesList4,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
@@ -230,17 +230,16 @@ if __name__ == '__main__':
         from functools import partial
         for alignment in [True]:
             getPoint = partial(c.getResultForPoint, align = alignment)
-            if 1:
-                t = clock()
-                pool = Pool(processes = 2)
-                res = pool.map(getPoint, range(nop))
-                np.save(getSaveName()+ "Aligen" + str(alignment), res)
-                print(clock()-t)
+            t = clock()
+            res = list(map(getPoint, range(nop)))
+            name = getSaveName()
+            np.save(name+ "Aligen" + str(alignment), res)
+            print(clock()-t)
             plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
-            pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
+            pl.savefig((name+ "Aligen" + str(alignment)))
             #%% Save plot of layer structure
             showLayerStructure(c)
-            pl.savefig(getSaveName()+"Structure")
+            pl.savefig(name+"Structure")
             #%% Plotting the colour band figure
             resArray = np.array(res)
             spec = mt.specData(wlRange,resArray.T)
@@ -255,9 +254,7 @@ if __name__ == '__main__':
             bottom='off',      # ticks along the bottom edge are off
             top='off',         # ticks along the top edge are off
             labelbottom='off') # labels along the bottom edge are off
-            pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
+            pl.savefig(name+ "Aligen" + str(alignment) + "CBand")
             
         #%% Close the pool
-        pool.close()
-        pool.join()
         pl.figure()

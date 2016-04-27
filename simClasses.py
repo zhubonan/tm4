@@ -783,7 +783,7 @@ class OptSystem():
         for i in range(len(tList)):
             self.structures[i].setThickness(tList[i])
     
-    def calcWl(self, wl, coupling):
+    def calcWl(self, wl, coupling = 'LL'):
             """A function to be called for calculating at a certain wl"""
             self.setIncidence(wl, self.Theta, self.Phi)
             self.updateStructurePartialTransfer()
@@ -806,16 +806,17 @@ class OptSystem():
         result = []
         # Initialise multiprocessing
         # Want to terminate the processes if anything goes wrong        
-        try:
+        with Pool(processes=procs) as pool:
             pool = Pool(processes = procs)
-        except:
-            pool.close()
-            pool.joint()
-            print("Child processes terminated")
-        calcWl = partial(self.calcWl, coupling = coupling)
-        result = pool.map(calcWl, wlList)#
-        pool.close()
-        pool.join()
+            calcWl = partial(self.calcWl, coupling = coupling)
+            try: 
+                result = pool.map(calcWl, wlList)
+            except:
+                pool.close()
+                pool.join()
+            finally:
+                pool.close()
+                pool.join()
         if giveInfo:
             return wlList, result, self.getSubStructureInfo()
         else: return wlList,result

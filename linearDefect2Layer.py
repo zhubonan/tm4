@@ -116,7 +116,7 @@ class CrossSection():
         return self.t
         
         
-    def getSpectrum(self, wlList = None, showResult = True):
+    def getSpectrum(self, wlList = None, align = True):
         """Calculate the spectrum for each point with given list of wavelengths"""
         if wlList == None:
             wlList = self.wlList
@@ -124,17 +124,14 @@ class CrossSection():
         n = len(self.t)                
         for i in range(n):
             print('Calculating point ' + str(i+1) +  ' out of ' + str(n) + '...', flush = True)
-            self.s.setStructure(self.tmp)
-            self.s.setThickness(self.t[i])
-            result.append(self.s.scanSpectrum(wlList, giveInfo = False)[1]) #Select the spec data only
+            result.append(self.getResultForPoint(i, None, align, False))
         result = np.array(result)
-        if showResult: self.plotResult(wlList, result)
         return result
         
     def setWlList(self,wlList):
         self.wlList = wlList
         
-    def getResultForPoint(self, pointIndex, wlList = None, align = True):
+    def getResultForPoint(self, pointIndex, wlList = None, align = True, showProgress = True):
         """This method is to be called for getting the spectrum for a certain point""" 
         if wlList == None:
             wlList = self.wlList
@@ -147,10 +144,13 @@ class CrossSection():
                 if i > 0: helix.phyParas['aor'] = end
                 #print(i,end)
                 # Calculate the end angle, not the intrinstic anlge of rotation need to be added
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi    
+                if i == 0:                
+                    end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
+                        + pointIndex/len(self.t) * 2 * np.pi   
         #print(self.s.getSubStructureInfo(), flush = True)
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
-        print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
+        if showProgress == True:
+            print('Calculation of point ' + str(pointIndex + 1) + ' finished', flush = True)
         return result
 #%% Plotting    
 def plotResult(wlList, result, title):
@@ -188,11 +188,10 @@ def showLayerStructure(c):
     + " incident from right TA= " +  "{0:.2f}".format(c.tmp[1].tiltParas['tiltAngle']))
     pl.xlabel('Height from bottom /nm')
     pl.ylabel('Distance /nm')
-    pl.show()
         
 #%%
 def f1(x):
-    return 2000 + 2 * x
+    return 2500
     
 
     
@@ -204,15 +203,14 @@ if __name__ == '__main__':
     pitchesList1 = [[200,180],[200,180],[200,160],[180,200], [170,200], [160,200]]
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     pitchesList3 = [[150,180],[180,150]]
-    pitchesList4 = [[180,145]]
+    pitchesList4 = [[180,180]]
     tiltList = [0] * 2
-    nop = 200 #Number of points to sample along the defect
-    for pitches, tilt in zip(pitchesList3,tiltList):
+    nop = 50 #Number of points to sample along the defect
+    for pitches, tilt in zip(pitchesList4,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
         h2.setTilt(tilt,[0,1,0])
-        h3 = heli(CNC, pitches[0] ,1000)
         tmp = [h1,h2]
         #%% Set layer structure
         c = CrossSection(s, 5000,1000,2)
@@ -220,25 +218,22 @@ if __name__ == '__main__':
         c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
-        res = []
         #for i in range(4):c.
        #     res.append(c.getResultForPoint(i))
         #c.getResultForPoint(0)
         #%% We reserve the choice of wether align or not here
         from functools import partial
-        for alignment in [False]:
-            getPoint = partial(c.getResultForPoint, align = alignment)
-            if 1:
-                t = clock()
-                pool = Pool(processes = 7)
-                res = pool.map(getPoint, range(nop))
-                np.save(getSaveName()+ "Aligen" + str(alignment), res)
-                print(clock()-t)
+        for alignment in [True]:
+            t = clock()
+            res = c.getSpectrum()
+            name = getSaveName()
+            np.save(name+ "Aligen" + str(alignment), res)
+            print(clock()-t)
             plotResult(wlRange, np.array(res), title= 'Alignment ' + str(alignment))
-            pl.savefig((getSaveName()+ "Aligen" + str(alignment)))
+            pl.savefig((name+ "Aligen" + str(alignment)))
             #%% Save plot of layer structure
             showLayerStructure(c)
-            pl.savefig(getSaveName()+"Structure")
+            pl.savefig(name+"Structure")
             #%% Plotting the colour band figure
             resArray = np.array(res)
             spec = mt.specData(wlRange,resArray.T)
@@ -253,9 +248,6 @@ if __name__ == '__main__':
             bottom='off',      # ticks along the bottom edge are off
             top='off',         # ticks along the top edge are off
             labelbottom='off') # labels along the bottom edge are off
-            pl.savefig(getSaveName()+ "Aligen" + str(alignment) + "CBand")
+            pl.savefig(name+ "Aligen" + str(alignment) + "CBand")
             
         #%% Close the pool
-        pool.close()
-        pool.join()
-        pl.figure()

@@ -7,7 +7,6 @@ import matplotlib.pyplot as pl
 import numpy as np
 import copy as cp
 from colourTools import specToRGB
-from multiprocessing import Pool
 from time import clock
 import time
 import matTools as mt
@@ -147,7 +146,7 @@ class CrossSection():
                     end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']
                 else:
                     end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
-                    + pointIndex/len(self.t) * 2* np.pi * 5
+                    + pointIndex/len(self.t) * np.pi
         #print(self.s.getSubStructureInfo(), flush = True) 
         result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
         print('Calculation of point ' + str(pointIndex) + ' finished', flush = True)
@@ -195,7 +194,7 @@ def f1(x):
     return 4000
     
 def f2(x):
-    return 1000
+    return 3000
     
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
@@ -207,7 +206,7 @@ if __name__ == '__main__':
     pitchesList3 = [[180,150]]
     pitchesList4 = [[180,180]]
     tiltList = [0] * 1
-    nop = 200 #Number of points to sample along the defect
+    nop = 50 #Number of points to sample along the defect
     for pitches, tilt in zip(pitchesList4,tiltList):
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
@@ -257,4 +256,3 @@ if __name__ == '__main__':
             pl.savefig(name+ "Aligen" + str(alignment) + "CBand")
             
         #%% Close the pool
-        pl.figure()

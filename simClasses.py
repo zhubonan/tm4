@@ -794,7 +794,7 @@ class OptSystem():
             elif coupling == 'RR':
                 return self.prop.RC[1,1].real
     
-    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL', procs = 4):
+    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL', procs = 'auto'):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -805,22 +805,17 @@ class OptSystem():
         """
         result = []
         # Initialise multiprocessing
+        if procs == 'auto':
+            from os import cpu_count
+            procs = cpu_count() -1
         # Want to terminate the processes if anything goes wrong        
         with Pool(processes=procs) as pool:
-            pool = Pool(processes = procs)
             calcWl = partial(self.calcWl, coupling = coupling)
-            try: 
-                result = pool.map(calcWl, wlList)
-            except:
-                pool.close()
-                pool.join()
-            finally:
-                pool.close()
-                pool.join()
+            result = pool.map(calcWl, wlList)
         if giveInfo:
             return wlList, result, self.getSubStructureInfo()
         else: return wlList,result
-        
+      
 #%%Some staff for convenience
 air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)

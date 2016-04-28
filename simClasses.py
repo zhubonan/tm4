@@ -440,8 +440,6 @@ class Helix(Structure):
             
             aor: intrinsic angle of rotation of the helix
         """
-        # Set handness of the helix
-        self.tiltParas = {'tilt': False, 'tiltAngle': 0}
 
 
     def setPhyParas(self, material, pitch, t, d, handness, aor = 0):
@@ -464,19 +462,7 @@ class Helix(Structure):
         """set the thicknes of the helix"""
         self.phyParas['t'] = t
         
-
-         
-    def setTilt(self, tiltAngle, tiltAxis):
-        """Set the tilting parameters"""
-        if tiltAngle != 0:
-            newParas = {'tiltAngle': tiltAngle, 'tiltAxis': tiltAxis, 
-            'tiltMatrix': mfc.rotVTheta(tiltAxis, tiltAngle), 
-            'tiltMatrixInv':  mfc.rotVTheta(tiltAxis, -tiltAngle), 
-            'tilt': True, 'tiltedPitch': self.phyParas['p']/np.cos(tiltAngle)}
-            # Note tilting effectively increase the pitch of the helix
-            self.tiltParas.update(newParas)
-        else:
-            return
+        
             
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
@@ -540,24 +526,18 @@ class HeliCoidalStructure(Helix):
         Build the partial transfer matrix, need to input wl and q
         """
         p = self.phyParas
-        t = self.tiltParas
         o = self.optParas
-        if t['tilt'] == True:
-            effPitch = t['tiltedPitch']
-        else:
-            effPitch = p['p']
-        r = np.remainder(p['t'], effPitch)
+        r = np.remainder(p['t'], p['p'])
         unit, remainder = Helix(), Helix()
         # Need to use a copy for the sub helixs
-        unit.setPhyParas(p['m'], p['p'], effPitch, p['d'], p['handness'], p['aor'])
+        unit.setPhyParas(p['m'], p['p'], p['p'], p['d'], p['handness'], p['aor'])
         remainder.setPhyParas(p['m'],p['p'], r, p['d'], p['handness'], p['aor'])
         # Copy properties
         unit.optParas, remainder.optParas = o, o
-        unit.tiltParas, remainder.tiltParas = t,t
         self.unit, self.remainder = unit, remainder
         unitT = unit.getPartialTransfer(None)
         remainderT = remainder.getPartialTransfer(None)
-        n = int(p['t']/effPitch)
+        n = int(p['t']/p['p'])
         return np.linalg.matrix_power(unitT,n).dot(remainderT)
         
 #%%
@@ -778,7 +758,7 @@ class OptSystem():
             elif coupling == 'RR':
                 return self.prop.RC[1,1].real
     
-    def scanSpectrum(self, wlList,  coreNum = 'auto', giveInfo = False, coupling = 'LL'):
+    def scanSpectrum(self, wlList,  coreNum = 1, giveInfo = False, coupling = 'LL'):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -792,7 +772,7 @@ class OptSystem():
         # Initialise multiprocessing
         if coreNum == 'auto':
             from os import cpu_count
-            coreNum = cpu_count() -1
+            coreNum = cpu_count() - 1
         # Want to terminate the processes if anything goes wrong        
         if coreNum == 1:
             result = list(map(calcWl, wlList))

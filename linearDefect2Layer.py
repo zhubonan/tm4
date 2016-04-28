@@ -14,7 +14,6 @@ import matplotlib.pyplot as pl
 import numpy as np
 import copy as cp
 from colourTools import specToRGB
-from multiprocessing import Pool
 from time import clock
 import time
 import matTools as mt
@@ -148,7 +147,7 @@ class CrossSection():
                     end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
                         + pointIndex/len(self.t) * 2 * np.pi   
         #print(self.s.getSubStructureInfo(), flush = True)
-        result = self.s.scanSpectrum(wlList, giveInfo = False)[1]
+        result = self.s.scanSpectrum(wlList, coreNum = 'auto',giveInfo = False)[1]
         if showProgress == True:
             print('Calculation of point ' + str(pointIndex + 1) + ' finished', flush = True)
         return result
@@ -185,7 +184,7 @@ def showLayerStructure(c):
     pl.xlim(0,c.d+100)
     pl.ylim((c.l,0))
     pl.title('With pitch '+ str([x.phyParas['p'] for x in c.tmp])
-    + " incident from right TA= " +  "{0:.2f}".format(c.tmp[1].tiltParas['tiltAngle']))
+    + " incident from right")
     pl.xlabel('Height from bottom /nm')
     pl.ylabel('Distance /nm')
         
@@ -204,13 +203,11 @@ if __name__ == '__main__':
     pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
     pitchesList3 = [[150,180],[180,150]]
     pitchesList4 = [[180,180]]
-    tiltList = [0] * 2
-    nop = 50 #Number of points to sample along the defect
-    for pitches, tilt in zip(pitchesList4,tiltList):
+    nop = 10 #Number of points to sample along the defect
+    for pitches in pitchesList4:
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
-        h2.setTilt(tilt,[0,1,0])
         tmp = [h1,h2]
         #%% Set layer structure
         c = CrossSection(s, 5000,1000,2)
@@ -222,7 +219,6 @@ if __name__ == '__main__':
        #     res.append(c.getResultForPoint(i))
         #c.getResultForPoint(0)
         #%% We reserve the choice of wether align or not here
-        from functools import partial
         for alignment in [True]:
             t = clock()
             res = c.getSpectrum()

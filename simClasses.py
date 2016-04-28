@@ -343,6 +343,8 @@ class Structure():
     A superclass represent a type of structure
     """
     propagtor = Propagator(method = 'eig')
+    optParas = {}
+    phyParas = {}
     def __init__(self):
         raise NotImplementedError
         
@@ -365,36 +367,50 @@ class Structure():
     def getInfo():
         """A method to get info of the structure"""
         raise NotImplementedError
-    def setOptParas():
-        """A method to set up optical parameters"""
-        raise NotImplementedError
-        
-    def setKx(self, Kx):
-        self.Kx = Kx
         
     def setWl(self, wl):
-        self.wl = wl
+        self.optParas['wl'] = wl
 
     def setThickness(self, t):
-        self.t = t
+        self.phyParas['t'] = t
     
+    def setPhi(self,Phi):
+        self.optParas['Phi'] = Phi
+        
+    def setOptParas(self, wl, Theta = 0, Phi = 0):
+        """Set up the optical parameters
+        
+        wl: wavelength of incident light
+        
+        Theta: incident angle
+        
+        Phi: azimuthal angle
+        """
+        Kx = 2 * np.pi / wl * np.sin(Theta)
+        self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi,'Theta': Theta}
+        
 class HomogeneousStructure(Structure):
     
     sType = 'homo'
     
-    def __init__(self, material, t, Phi = 0):
-        self.material = material
-        self.t = t
-        self.Phi = Phi
-        self.info = {"Type":"Homogeneous", "TotalThickness": self.t}
+    def __init__(self, material, t):
+        self.setPhyParas(material, t)
+        self.info = {"Type":"Homogeneous", "TotalThickness": self.phyParas['t']}
+        
+    def setPhyParas(self, material, t):
+        
+        self.phyParas.update({'m':material, 't':t})
+        
     def constructDelta(self):
-        e = self.material.getTensor(self.wl)
-        e = mfc.rotedEpsilon(e, self.Phi)
-        self.delta = mfc.buildDeltaMatrix(self.material.getTensor(self.wl), self.Kx)
+        o = self.optParas
+        wl, Phi, Kx= o['wl'], o['Phi'], o['Kx']
+        e =self.phyParas['m'].getTensor(wl)
+        e = mfc.rotedEpsilon(e, -Phi)
+        self.delta = mfc.buildDeltaMatrix(e, Kx)
     
     def getPartialTransfer(self):
         self.constructDelta()
-        self.partialTransfer = self.propagtor(self.delta, self.t, 2*np.pi/ self.wl, q = None)
+        self.partialTransfer = self.propagtor(self.delta, self.phyParas['t'],2*np.pi/self.optParas['wl'], q = None)
         return self.partialTransfer
         
     def getInfo(self):
@@ -405,6 +421,9 @@ class HomogeneousStructure(Structure):
 
 
 class Helix(Structure):
+    """An class represent a CNC helix that is sliced into a stack on homogeneous
+    layers
+    """
     _hasRemainder = False
     sType = 'helix'
     #wl = None #dont specify wavelength initially
@@ -423,8 +442,7 @@ class Helix(Structure):
         """
         # Set handness of the helix
         self.tiltParas = {'tilt': False, 'tiltAngle': 0}
-        self.phyParas = None
-        self.optParas = None
+
 
     def setPhyParas(self, material, pitch, t, d, handness, aor = 0):
         """Set the physical parameters of the class"""
@@ -446,17 +464,7 @@ class Helix(Structure):
         """set the thicknes of the helix"""
         self.phyParas['t'] = t
         
-    def setOptParas(self, wl, Theta = 0, Phi = 0):
-        """Set up the optical parameters
-        
-        wl: wavelength of incident light
-        
-        Theta: incident angle
-        
-        Phi: azimuthal angle
-        """
-        Kx = 2 * np.pi / wl * np.sin(Theta)
-        self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi,'Theta': Theta}
+
          
     def setTilt(self, tiltAngle, tiltAxis):
         """Set the tilting parameters"""
@@ -470,41 +478,15 @@ class Helix(Structure):
         else:
             return
             
-###### Cacalculation for preparation of getting the partial transfer matrix #####
-    @staticmethod
-    @lru_cache(maxsize = 4)
-    def _getEpsilon(material, wl, p, t, d, handness, aor):
-        """Build the epsilon for each layer"""
-        endAngle = t / p * handness * np.pi
-        angles = np.linspace(0, endAngle, d, endpoint = False) + aor
-        # This is the epsilon in the frame where principle axies are aligned with xyz
-        epsilon = material.getTensor(wl)
-        # ANY CHANCE of the optimising this?
-        return np.array([mfc.rotedEpsilon(epsilon, theta) for theta in angles])
-        
-    def _getDelta(self):
-        """Build the Delta matrix in Berreman's formulation"""
-        # Use self.aor - self.Phi to take rotation of the helix and viewing angle in to account
-        # Note increasing viewing azmuthal angle is equivalent to DECREASING intrinsic rotation angle
-        p = self.phyParas
-        o = self.optParas
-        # We want to change the epsilons for each layer if the helix is tilted
-        if self.tiltParas['tilt'] == True:
-            tiltMatrix = self.tiltParas['tiltMatrix']
-            tiltMatrixInv = self.tiltParas['tiltMatrixInv']
-            epsilonList = self._getEpsilon(p['m'], o['wl'], self.tiltParas['tiltedPitch']
-            , p['t'], p['d'], p['handness'], p['aor'] - o['Phi'])
-            # Want to perform rotation for Nx(3,3) matrices
-            tmp = epsilonList.dot(tiltMatrixInv)
-            # 3x3 dot Nx3x3 is not what we want, fix using einstein summation convention
-            epsilonList = np.einsum('ij,ajk', tiltMatrix, tmp)
-        else:
-            epsilonList = self._getEpsilon(p['m'], o['wl'], p['p'], p['t'], 
-                                       p['d'], p['handness'], p['aor'] - o['Phi'])
-        self.e = epsilonList
-        return [mfc.buildDeltaMatrix(e, o['Kx']) for e in epsilonList]
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
+    def getAngles(self):
+        """Get the angle of roatation for each layer. Return an 1d array of the angles
+        to be rotated for each layer. These are the physics angles to be rotated"""
+        p = self.phyParas
+        endAngle = p['t'] / p['p'] * p['handness'] * np.pi
+        return np.linspace(0, endAngle, p['d'], endpoint = False) + p['aor']
+        
     def getPartialTransfer(self, q = None):
         """
         Build the partial transfer matrix, need to input wl and q
@@ -514,18 +496,21 @@ class Helix(Structure):
         o = self.optParas
         if p['t'] == 0:
             return np.identity(4)
-            
-        self.delta = self._getDelta()
-        #Get propagation matrices, require devision thickness the wl has the same
-        #unit. This effectively scales the problem
-        k0 = 2*np.pi/o['wl']
-        PMatrices = [self.propagtor(delta, p['sliceThickness'], k0, q) for delta
-                              in self.delta]
+        # First we spawn a list of HomogeneousStructures
+        layerList = [HomogeneousStructure(p['m'],p['sliceThickness']) for i in range(p['d'])]
+        # Then we set the .Phi of each layer.
+        PhiList = -(self.getAngles() - o['Phi']) # Note the reqired .Phi is the opposite of the angles of the phyiscs rotation
+        PMatrices = []
+        for layer, phi in zip(layerList, PhiList):
+            layer.setOptParas(o['wl'], o['Theta'], phi)
+            PMatrices.append(layer.getPartialTransfer())
+
         self.P = PMatrices
         #Take dot product for all 4x4 slices the first axis 
         return  mfc.stackDot(PMatrices)
             
-
+        
+        
 class HeliCoidalStructure(Helix):
     
     _hasRemainder = False
@@ -742,7 +727,6 @@ class OptSystem():
         overallPartial = np.identity(4)
         for s in self.structures:
             s.setOptParas(self.wl, self.Theta, self.Phi)
-            s.getPartialTransfer()
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
         self.overallPartial = overallPartial  
@@ -794,7 +778,7 @@ class OptSystem():
             elif coupling == 'RR':
                 return self.prop.RC[1,1].real
     
-    def scanSpectrum(self, wlList, giveInfo = True, coupling = 'LL', procs = 'auto'):
+    def scanSpectrum(self, wlList,  coreNum = 'auto', giveInfo = False, coupling = 'LL'):
         """Cacluate the respecon at the given wavelengths. 
        
         giveinfo: boolen, determine if return information about the strcuture
@@ -804,14 +788,17 @@ class OptSystem():
         of using analyser
         """
         result = []
+        calcWl = partial(self.calcWl, coupling = coupling)
         # Initialise multiprocessing
-        if procs == 'auto':
+        if coreNum == 'auto':
             from os import cpu_count
-            procs = cpu_count() -1
+            coreNum = cpu_count() -1
         # Want to terminate the processes if anything goes wrong        
-        with Pool(processes=procs) as pool:
-            calcWl = partial(self.calcWl, coupling = coupling)
-            result = pool.map(calcWl, wlList)
+        if coreNum == 1:
+            result = list(map(calcWl, wlList))
+        else:
+            with Pool(processes=coreNum) as pool:
+                result = pool.map(calcWl, wlList)
         if giveInfo:
             return wlList, result, self.getSubStructureInfo()
         else: return wlList,result
@@ -824,16 +811,6 @@ if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent
     from preset import *
-    for aor in [0,np.pi/6,np.pi/3,np.pi/2]:
-        h1 = HeliCoidalStructure(CNC, 150, 3000, aor = aor)
-        h1.setTilt(np.pi/6,[0,1,0])
-        h = Helix()
-        h.setPhyParas(CNC, 150, 3000,300,-1, aor = aor)
-        h.setTilt(np.pi/6,[0,1,0])
-        s.setStructure([h])
-        res0 = s.scanSpectrum(wlRange)
-        #s.setStructure([h])
-        #res1 = s.scanSpectrum(wlRange)
-        pl.plot(res0[0], res0[1])
-        #pl.plot(res1[0], res1[1])
-        #h1.unit.e == h.e[0:30]
+    
+    res = s.scanSpectrum(wlRange,1)
+    pl.plot(res[0],res[1])

@@ -278,7 +278,7 @@ class IsotropicHalfSpace(HalfSpace):
         Kx = n * np.sin(Theta)
         return Kx
 
-    def get_Kz_from_Kx(self, Kx, wl):
+    def getKzFromKx(self, Kx, wl):
         """Returns the value of Kz in the half-space, function of Kx
         
         'Kx' : Reduced wavenumber,      Kx = kx/k0 = n sin(Theta)
@@ -292,7 +292,7 @@ class IsotropicHalfSpace(HalfSpace):
         Kz2 = n**2 - Kx**2
         return np.sqrt(complex(Kz2))
 
-    def get_Theta_from_Kx(self, Kx, wl):
+    def getThetaFromKx(self, Kx, wl):
         """Returns the value of angle Phi according to the value of Kx.
         
         'Kx' : Reduced wavenumber,      Kx = kx/k0 = n sin(Theta)
@@ -390,7 +390,10 @@ class Structure():
         self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi,'Theta': Theta}
         
 class HomogeneousStructure(Structure):
-    
+    """
+    A class for a homogeneous layer. Can be used as basic calculation element for
+    complex structures.
+    """
     sType = 'homo'
     
     def __init__(self, material, t):
@@ -421,12 +424,10 @@ class HomogeneousStructure(Structure):
 
 
 class Helix(Structure):
-    """An class represent a CNC helix that is sliced into a stack on homogeneous
+    """An class represent a CNC helix that is sliced into a stack of homogeneous
     layers
     """
-    _hasRemainder = False
     sType = 'helix'
-    #wl = None #dont specify wavelength initially
 
     def __init__(self):
         """
@@ -498,8 +499,11 @@ class Helix(Structure):
         
         
 class HeliCoidalStructure(Helix):
-    
-    _hasRemainder = False
+    """
+    A class that speed up the calculation by dividing itself into a repeating 
+    unit and a remainder unit. The transfer matrix of the repeating unit can be 
+    raised to power to get the effective transfer matrix.
+    """
     sType = 'helix'
     #wl = None #dont specify wavelength initially
 
@@ -540,7 +544,7 @@ class HeliCoidalStructure(Helix):
         n = int(p['t']/p['p'])
         return np.linalg.matrix_power(unitT,n).dot(remainderT)
         
-#%%
+#%% Need to be cleaned up
 class AnyHeliCoidalStructure(Structure):
     """A generalised helicoidalStucture"""
     Phi = 0 #Set the angle phy to be zero in the start

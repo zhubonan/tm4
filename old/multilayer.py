@@ -303,10 +303,16 @@ class H_Layers():
         
 if __name__ == '__main__':
     # self-testing codes
-    a= 1.2
-    b = 1
+    import matplotlib.pyplot as pl
+    a= 1.55
+    b = 1.58
     m = Uniaxial_Material(a,b)
-    l = H_Layers(m, 100, 9, 5048)
-    l.set_incidence([0,0,1], 450,1,2)
-    l.doit()
-    
+    l = H_Layers(m, 180, 30, 5000)
+    l.set_incidence([0,0,1], 450,1,1.6)
+    res = []
+    wlRange = np.linspace(400,800,200)
+    for wl in wlRange:
+        l.set_incidence([0,0,1], wl, 1,1)
+        l.doit()
+        res.append(l.prop.RCRR)
+    pl.plot(wlRange, res)

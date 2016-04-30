@@ -61,3 +61,5 @@ target/
 #Spyder IDE
 *.spyderproject*
 *.spyderworkspace*
+#Folder
+results/

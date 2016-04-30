@@ -11,7 +11,7 @@ import scipy as sp
 import numpy as np
 import mathFunc as mfc
 import matplotlib.pyplot as pl
-from functools import lru_cache
+from os import cpu_count
 #%%
 class customCall:
     """A convenient class to overlording calls to a object. It is used in Material
@@ -775,7 +775,6 @@ class OptSystem():
         calcWl = partial(self.calcWl, coupling = coupling)
         # Initialise multiprocessing
         if coreNum == 'auto':
-            from os import cpu_count
             coreNum = cpu_count() - 1
         # Want to terminate the processes if anything goes wrong        
         if coreNum == 1:
@@ -795,6 +794,13 @@ if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent
     from preset import *
-    
-    res = s.scanSpectrum(wlRange,1)
-    pl.plot(res[0],res[1])
+    from time import clock    
+    repeat = 5
+    wlRange = np.linspace(400,800,200)
+    cStart = clock()
+    h1.phyParas['t'] = 150
+    for i in range(repeat):
+        res = s.scanSpectrum(wlRange,2)
+        #pl.plot(res[0],res[1])
+    timeUsed = (clock() - cStart) / repeat
+    print(timeUsed)

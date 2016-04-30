@@ -7,7 +7,7 @@ class definitions
 from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
-import mathfunc as mfc
+import old.mathFunc as mfc
 from abc import ABCMeta, abstractmethod
 
 class Optical_Properties:

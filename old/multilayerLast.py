@@ -7,7 +7,7 @@ class definitions
 from scipy.interpolate import interp1d
 import scipy.constants as sc
 import numpy as np
-import old.mathFunc as mfc
+from old.mathFuncLast import *
 from abc import ABCMeta, abstractmethod
 
 class Optical_Properties:
@@ -18,7 +18,7 @@ class Optical_Properties:
         Initialise the class by pass the overall transfer matrix(including incident
         and reflected light).
         """
-        self.c_matrices = mfc.calc_coupling_matrices(T_overall)
+        self.c_matrices = calc_coupling_matrices(T_overall)
         self.update_R()
         self.update_T()
         
@@ -61,7 +61,7 @@ class Optical_Properties:
         return
         r_p = self.c_matrices["Plane_r"]
         inc_y = np.sin(theta/180*np.pi)
-        inc_x = np.sqrt(1-inc_y**2)
+        inc_x = np.sqrt(1-y**2)
         ref_y,ref_x = r_p.dot(np.array([inc_y,inc_x]))
         return np.arctan2(ref_y, ref_x)
         
@@ -132,13 +132,11 @@ class Seg(metaclass = ABCMeta):
         # store stucture_parameters
         self.structure_paras = structure
             
-    def set_incidence(self, direction, wavelength, front = 1, back = 1):
+    def set_incidence(self, direction, wavelength):
         """
         Set propagation constants a and b based on incident light direction
         The problem is scaled such that the wavelength is one
         Universal to any structure
-        
-        front, back: refractive index of incident and exiting medium 
         """
         self.wavelength = wavelength
         self.scale_factor = 2* np.pi /wavelength
@@ -148,12 +146,12 @@ class Seg(metaclass = ABCMeta):
         self.a = k[0]
         self.b = k[1]
         # set incident light polarisation directions
-        self._incident_p = mfc.incident_p(k)
+        self._incident_p = incident_p(k)
         # assign 4 k vectors for two polarisations
         k0 = np.array([k, [k[0],k[1],-k[2]],k, [k[0],k[1],-k[2]]])
         # construct the dynamical matrix of the incident media
-        self.D_inc = mfc.calc_D(self._incident_p, mfc.calc_q(k0*front, self._incident_p))
-        self.D_ext = mfc.calc_D(self._incident_p, mfc.calc_q(k0*back, self._incident_p))
+        self.D0 = calc_D(self._incident_p, calc_q(k0, self._incident_p))
+    
     @abstractmethod    
     def update_thickness(self):
         """
@@ -170,10 +168,10 @@ class Seg(metaclass = ABCMeta):
         pass
     
     def update_D(self):
-        self.k = [mfc.calc_k(e, self.a, self.b) for e in self.e]
-        self.p = [mfc.calc_p(self.e[i], self.k[i]) for i in range(self.N)]
-        self.q = [mfc.calc_q(self.k[i], self.p[i]) for i in range(self.N)]
-        self.D = np.asarray([mfc.calc_D(self.p[i], self.q[i]) for i in range(self.N)])
+        self.k = [calc_k(e, self.a, self.b) for e in self.e]
+        self.p = [calc_p(self.e[i], self.k[i]) for i in range(self.N)]
+        self.q = [calc_q(self.k[i], self.p[i]) for i in range(self.N)]
+        self.D = np.asarray([calc_D(self.p[i], self.q[i]) for i in range(self.N)])
         
     def update_P(self):
         self.k = np.asarray(self.k)
@@ -187,7 +185,7 @@ class Seg(metaclass = ABCMeta):
         """
         self.T_eff = [np.linalg.solve(self.D[i-1],self.D[i].dot(self.P[i])) for i in range(1,self.N)]
         # multiply terms of D[0]P[0] and D[N-1]-1 to the product        
-        self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(mfc.stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
+        self.T_eff_total = np.dot(self.D[0],self.P[0]).dot(stack_dot(self.T_eff).dot(np.linalg.inv(self.D[-1])))
     
     def doit(self):
         """
@@ -204,16 +202,16 @@ class H_Seg(Seg):
     """
     An class object represent a stack of helicoidal arranged layers
     """
-    def __init__(self, material, pitch, divisions , total_thickness):
+    def __init__(self, material, pitch, layer_thickness, total_thickness):
         
         self.material = material
-        self.structure_paras = [pitch, divisions , total_thickness]
+        self.structure_paras = [pitch, layer_thickness, total_thickness]
         
     def update_e(self):
         """
         calculate the relative dielectric matrix for all layers
         """
-        self.e = mfc.construct_epsilon_heli(self.material(self.wavelength), *self.structure_paras)
+        self.e = construct_epsilon_heli(self.material(self.wavelength), *self.structure_paras)
         # store the number of stacks
         self.N = self.e.shape[0]
 
@@ -221,14 +219,12 @@ class H_Seg(Seg):
         """
         Build the array to represent the thickness data
         """
-        # if the helix contian more than a full rotation then the thickness is
-        # pitch diveded by the divisions, otherwise it is the total_thickness
-        self._thickness = np.full(self.e.shape[0], min(self.structure_paras[0], self.structure_paras[2])/self.structure_paras[1])
+        self._thickness = np.full(self.e.shape[0], self.structure_paras[1])
         
     def update_T(self):
         Seg.update_T(self)
-        #self.T_total = np.linalg.solve(self.D0, self.T_eff_total.dot(self.D0))
-        #self.prop = Optical_Properties(self.T_total)
+        self.T_total = np.linalg.solve(self.D0, self.T_eff_total.dot(self.D0))
+        self.prop = Optical_Properties(self.T_total)
         
 class H_Layers():
     """
@@ -238,63 +234,50 @@ class H_Layers():
     to power N where N is the number of repeats, instead of calculate transfer matrices
     for each interface.
     """
-    def __init__(self, material, pitch, divisions , total_thickness):
+    def __init__(self, material, pitch, layer_thickness, total_thickness):
         """
         Initialise self and sub-segments
         """
         self.material = material
-        self.pitch = pitch
-        self.total_thickness = total_thickness
-        # calculate the thickness for each layer
-        layer_thickness = pitch / divisions
-        # First treat the repeating part
-        self._repeat = H_Seg(material, pitch, divisions, pitch)
-        self._N_of_repeating_units = int(total_thickness/pitch)
-        # Now we treat the remaining part
-        self.remainder_thickness = np.remainder(total_thickness, pitch)
-        if self.remainder_thickness != 0 :
-            # if there is a remaining unit, need to use a different number of division but
-            # keep the layer thickness unchanged. Also need to update the new total thickness
-            # of the whole unit as the remaining part tailered out
-            divisions_of_remainder = int(self.remainder_thickness/layer_thickness)
-            # check at least there is one unit of the remainder            
-            if divisions_of_remainder !=  0:
-                self._has_remainder = True
-                remainder_thickness_corrected = divisions_of_remainder * layer_thickness
-                total_thickness_corrected = total_thickness - self.remainder_thickness + remainder_thickness_corrected
-                print("Set corrected thickness to " + str(total_thickness_corrected))
-                self.total_thickness = total_thickness_corrected
-                self._remainder = H_Seg(material, pitch, divisions_of_remainder, remainder_thickness_corrected)
-            else: self._has_remainder = False
-        else: self._has_remainder = False
+        self._pitch = pitch
+        # descard any incomplete layers
+        total_thickness = total_thickness - total_thickness%layer_thickness
+        self._layer_thickness = layer_thickness
+        self._total_thickness = total_thickness
+        # consider the case where there is no reminder part
+        if total_thickness % pitch != 0 :
+            self._flag_has_reminder = True
+            self._reminder = H_Seg(material, pitch, layer_thickness, total_thickness % pitch)
+        else: self._flag_has_reminder = False
         
-
+        self._repeat = H_Seg(material, pitch, layer_thickness, pitch)
+        self._N_of_units = int(total_thickness/pitch)
                   
-    def set_incidence(self, direction, wavelength, front = 1, back = 1):
+    def set_incidence(self, direction, wavelength):
         """
         Set incidence wave parameters and pass on to sub-layers
         """
-        H_Seg.set_incidence(self, direction, wavelength, front, back)
+        H_Seg.set_incidence(self, direction, wavelength)
         self._repeat.set_incidence(direction, wavelength)
-        if self._has_remainder:
-            self._remainder.set_incidence(direction, wavelength)
+        if self._flag_has_reminder:
+            self._reminder.set_incidence(direction, wavelength)
     
     def calc_T(self):
         #Calculate the total transfer matrix for the bulk material
         self._repeat.doit()
-        if self._has_remainder:
-            self._remainder.doit()
+        if self._flag_has_reminder:
+            self._reminder.doit()
         
         # calculate the layer part of the total transfer matrix
             T_layers = np.linalg.matrix_power(self._repeat.T_eff_total, 
-                       self._N_of_repeating_units).dot(self._remainder.T_eff_total)
+                       self._N_of_units).dot(self._reminder.T_eff_total)
         else:
             T_layers = np.linalg.matrix_power(self._repeat.T_eff_total, 
-                       self._N_of_repeating_units)
+                       self._N_of_units)
         # Now add dynamic matrix of the incident and exiting medium
         # Assume to be the vacuum for now
-        self.T_total = np.linalg.solve(self.D_inc, T_layers.dot(self.D_ext))
-        self.coeff = mfc.calc_coeff(self.T_total)
+        self.T_total = np.linalg.solve(self.D0, T_layers.dot(self.D0))
+        self.coeff = calc_coeff(self.T_total)
         self.coeff_modulus = self.coeff.copy()
         self.prop = Optical_Properties(self.T_total)
 
@@ -303,16 +286,11 @@ class H_Layers():
         
 if __name__ == '__main__':
     # self-testing codes
-    import matplotlib.pyplot as pl
-    a= 1.55
-    b = 1.58
-    m = Uniaxial_Material(a,b)
-    l = H_Layers(m, 180, 30, 5000)
-    l.set_incidence([0,0,1], 450,1,1.6)
-    res = []
-    wlRange = np.linspace(400,800,200)
-    for wl in wlRange:
-        l.set_incidence([0,0,1], wl, 1,1)
-        l.doit()
-        res.append(l.prop.RCRR)
-    pl.plot(wlRange, res)
+    a = [[200,300,500], [1,1.2,1.5]]
+    b = [[200,300,500], [1.1,1.3,1.6]]
+    c = [[200,300,600], [1,1.5,1.6]]
+    m = U_Material(a,b)
+    l = H_Layers(m, 100, 10, 5009)
+    l.set_incidence([0,0,1], 450)
+    l.doit()
+    

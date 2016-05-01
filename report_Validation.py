@@ -70,4 +70,4 @@ if __name__ == "__main__":
     pl.ylabel('Reflectance L-L')
     pl.legend(loc = 2, fontsize = "small")
     pl.tight_layout()
-    pl.savefig("../PartIIIReport/fig/validation.pdf")
+    #pl.savefig("../PartIIIReport/fig/validation.pdf")

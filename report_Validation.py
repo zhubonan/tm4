@@ -60,7 +60,7 @@ if __name__ == "__main__":
     #%% Plotting
     pl.rcParams['axes.labelsize'] = 9
     pl.rcParams['figure.titlesize'] = 10
-    pl.figure(figsize = (6,4))
+    pl.figure(figsize = (5,5*2/3))
     #pl.rcParams['a']
     pl.plot(wlRange, tRes, '-',label = "Theotical")
     pl.plot(wlRange, bRes, '+',label = "Berreman")
@@ -69,4 +69,5 @@ if __name__ == "__main__":
     pl.xlabel('Wavelength /nm')
     pl.ylabel('Reflectance L-L')
     pl.legend(loc = 2, fontsize = "small")
+    pl.tight_layout()
     pl.savefig("../PartIIIReport/fig/validation.pdf")

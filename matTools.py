@@ -10,6 +10,7 @@ from scipy.signal import find_peaks_cwt, savgol_filter
 from colourTools import specToRGB
 import numpy as np
 import matplotlib.pyplot as pl
+import scipy as sp
 pi = np.pi
 pl.rcParams['image.cmap'] = 'viridis'
 
@@ -17,7 +18,7 @@ pl.rcParams['image.cmap'] = 'viridis'
 class specData():
     """Analysis spectrum from a stack of spec data"""
 
-    def __init__(self, wl, spec, desc = None):
+    def __init__(self, wl, spec, desc = None, shape = None):
         """
         Construct a specData object
         
@@ -39,6 +40,7 @@ class specData():
         self.spec = spec
         self.range = [wl[0], wl[-1]]
         self.desc = desc
+        self.setSpacialShape(shape)
         
     @staticmethod
     def _cropIndices(wl, wlRange):
@@ -86,6 +88,10 @@ class specData():
         newX = np.linspace(wl.min(),wl.max(), ns)
         newY = interp(newX)
         return (newX, newY)
+    
+    def setSpacialShape(self, shape):
+        """Set the 2D shape of the object"""
+        self.spacialShape = shape
         
     def findPeakIndex(self, widthRange = (1,100), **args):
         """Find the peak on the active data"""
@@ -144,7 +150,7 @@ class specData():
         r = np.zeros((s, n))
         for i in range(n):
             r[:,i] = savgol_filter(self.spec[:,i], window_length, polyorder, **args)
-        return specData(self.wl, r, self.desc)
+        return specData(self.wl, r, self.desc, self.spacialShape)
         
     def testFilter(self, window_length, polyorder, n = 0, **sav_args):
         """Test savgol filter parameters"""
@@ -169,7 +175,7 @@ class specData():
             thisSpec = self.spec[:,i]   
             thisResampled = self._resampledSpectrum(1/self.wl, thisSpec, ns, k)[1]
             resSpec = np.append(resSpec, thisResampled[:,np.newaxis], axis = 1)
-        return specData(resSpecData[0], resSpec)
+        return specData(resSpecData[0], resSpec, self.desc, self.spacialShape)
     
     def applyFunc2D(self, func, nOutput, *args):
         """Apply a function to each spectrum measurement and return an (n,n,X) array
@@ -198,7 +204,10 @@ class specData():
         s, n = self.spec.shape # n is the number of spectrum
         RGB = self.getRGBArray()
         if shape == 'auto':
-            shape = (np.sqrt(n), np.sqrt(n))
+            if self.spacialShape != None:
+                shape = self.spacialShape
+            else:
+                raise IndentationError('No information on shape found')
         RGBArray = RGB.reshape(shape+(3,))
         if show:
             f = pl.figure()
@@ -226,8 +235,7 @@ class specData():
         """Get a 2D grey scale image by summing spec data"""
         s, n = self.spec.shape
         g = np.sum(self.spec, axis = 0)
-        l = np.sqrt(n)
-        gArray = g.reshape((l,l))
+        gArray = g.reshape((self.spacialShape[0],self.spacialShape[1]))
         if show:
             f = pl.figure()
             pl.imshow(gArray, cmap = pl.get_cmap('gray'))
@@ -237,10 +245,44 @@ class specData():
             pl.show()
             return f
         return gArray
+    
+    
+    def plotLineSlice(self, start, finish ,num):
+        """Plot the spectrum using imshow along an arbitrary line.
+        Spline interpolation is used. This uses scipy.ndimage.map_coordinates function.
+        The spectral data is treated as a stack of 2D images along the first axes.        
+        start, finish: tuple of length 2s for starting and finishing coorindates
         
+        num: number of points to be interpolated
+        
+        """
+        n= self.spec.shape[0]
+        if type(self.spacialShape) != None:
+            l = self.spacialShape
+        else:
+            raise RuntimeError('Cannot get the shape of the spectrum')
+        data = self.spec.reshape((n,l[0],l[1]))#use default range 425 to 800
+        #Generate the coorindates
+        x,y = np.linspace(start[0], finish[0], num), np.linspace(start[1], finish[1], num)
+        # Preallocate storage space
+        zi = np.empty((n,num))
+        for i in range(n):
+        #We interoplate at each wavelength
+        #Need to transpose each images since the ordering is different as in imshow the 1st axis is the Y axis not X
+            zi[i] = sp.ndimage.map_coordinates(data[i].T, np.vstack((x,y)))
+        pl.imshow(zi, aspect='auto', extent = [0,num,self.range[1],self.range[0]])
+        ##Plot the back grount
+        self.get2DColouredImage(show = 1)#Supresss the display of image
+        ##Now plot the actual line
+        pl.plot((start[0],finish[0]), (start[1],finish[1]), 'ro-')
+        pl.xlim(0,l[0])
+        pl.ylim(0,l[1])
+        return zi
+    
+    
     def __add__(self, other):
         newSpec = np.append(self.spec,other.spec, axis = 1)
-        output = specData(self.wl, newSpec)
+        output = specData(self.wl, newSpec, self.desc, self.spacialShape)
         return output
 #%%
 def disp2DPeakData(pWlMat, pHMat):

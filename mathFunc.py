@@ -56,8 +56,8 @@ def buildDeltaMatrix(eps, Kx):
     Returns : Delta 4x4 matrix, generator of infinitesimal translations
     """
     return np.array(
-        [[-Kx * eps[2,0] / eps[2,2], -Kx * eps[2,1] / eps[2,2], 
-          0, 1 - Kx**2 / eps[2,2]],
+        [[-Kx * eps[2,0] / eps[2,2], -Kx * eps[2,1] / eps[2,2], 0, 
+          1 - Kx**2 / eps[2,2]],
          [0, 0, -1, 0],
          [eps[1,2] * eps[2,0] / eps[2,2] - eps[1,0],
           Kx**2 - eps[1,1] + eps[1,2] * eps[2,1] / eps[2,2],

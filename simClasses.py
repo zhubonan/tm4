@@ -377,7 +377,7 @@ class Structure():
     def setPhi(self,Phi):
         self.optParas['Phi'] = Phi
         
-    def setOptParas(self, wl, Theta = 0, Phi = 0):
+    def setOptParas(self, wl, Kx, Phi = 0):
         """Set up the optical parameters
         
         wl: wavelength of incident light
@@ -386,8 +386,7 @@ class Structure():
         
         Phi: azimuthal angle
         """
-        Kx = 2 * np.pi / wl * np.sin(Theta)
-        self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi,'Theta': Theta}
+        self.optParas ={'wl': wl, 'Kx': Kx, 'Phi': Phi}
         
 class HomogeneousStructure(Structure):
     """
@@ -489,7 +488,7 @@ class Helix(Structure):
         PhiList = -(self.getAngles() - o['Phi']) # Note the reqired .Phi is the opposite of the angles of the phyiscs rotation
         PMatrices = []
         for layer, phi in zip(layerList, PhiList):
-            layer.setOptParas(o['wl'], o['Theta'], phi)
+            layer.setOptParas(o['wl'], o['Kx'], phi)
             PMatrices.append(layer.getPartialTransfer())
 
         self.P = PMatrices
@@ -710,7 +709,7 @@ class OptSystem():
         """
         overallPartial = np.identity(4)
         for s in self.structures:
-            s.setOptParas(self.wl, self.Theta, self.Phi)
+            s.setOptParas(self.wl, self.Kx, self.Phi)
             # Apply matrix products
             overallPartial = overallPartial.dot(s.getPartialTransfer())
         self.overallPartial = overallPartial  
@@ -793,6 +792,7 @@ airHalfSpace = IsotropicHalfSpace(air)
 if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent
+    """
     from preset import *
     from time import clock    
     repeat = 5
@@ -804,3 +804,13 @@ if __name__ == "__main__":
         #pl.plot(res[0],res[1])
     timeUsed = (clock() - cStart) / repeat
     print(timeUsed)
+    """
+    #Test for angled incidence
+    from preset import *
+    s.setIncidence(500, 0,0)
+    res1 = s.scanSpectrum(wlRange, 1)
+    s.setIncidence(500,np.pi/3,0)
+    res2 = s.scanSpectrum(wlRange, 1)
+    pl.plot(res1[0],res1[1],label = 'Normal Incidence')
+    pl.plot(res2[0],res2[1],label = '45 degree')
+    pl.legend()

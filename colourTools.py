@@ -5,7 +5,7 @@ Converting reflectance spectrum to a CIE coordinate
 @author: Bonan
 """
 import numpy as np
-
+from scipy import interpolate
 #Adobe RGB (1998) D65 as reference white
 #http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
 _RGB_to_XYZ =  np.array([
@@ -20,6 +20,14 @@ _XYZ_to_RGB =  np.array([
 CIE_XYZ_table = np.loadtxt('CIE_1931_XYZ.txt').T # Transpose column into rows
 CIE_A = np.loadtxt('CIE_A.txt').T
 CIE_D65 = np.loadtxt('CIE_D65.txt').T
+
+def splineInterp(xNew, xRaw, yRaw):
+    """
+    Compute the spline interpolation(cubic) of the data
+    """
+    tck = interpolate.splrep(xRaw,yRaw)
+    return interpolate.splev(xNew, tck, der = 0)
+    
 def specToXYZ(spec, SI = 'D65'):
     """
     Calculate the XYZ coordinate of the spectrum input. It interpolates the charts
@@ -33,14 +41,14 @@ def specToXYZ(spec, SI = 'D65'):
     wl = spec[0] # the input must have the 1st element as the wavelength
     XYZ = CIE_XYZ_table    
     if SI == 'D65':
-        interpSI = np.interp(wl, CIE_D65[0], CIE_D65[1])
+        interpSI = splineInterp(wl, CIE_D65[0], CIE_D65[1])
     if SI == 'A':
-        interpSI = np.interp(wl, CIE_A[0], CIE_A[1])
+        interpSI = splineInterp(wl, CIE_A[0], CIE_A[1])
     else:
         interpSI = np.ones(len(wl))                
-    interpX = np.interp(wl, XYZ[0], XYZ[1])
-    interpY = np.interp(wl, XYZ[0], XYZ[2])
-    interpZ = np.interp(wl, XYZ[0], XYZ[3])
+    interpX = splineInterp(wl, XYZ[0], XYZ[1])
+    interpY = splineInterp(wl, XYZ[0], XYZ[2])
+    interpZ = splineInterp(wl, XYZ[0], XYZ[3])
     interpXYZ =np.array([interpX, interpY, interpZ])
     X ,Y, Z = np.sum(spec[1]*interpSI*interpXYZ,axis = 1)
     return X,Y,Z

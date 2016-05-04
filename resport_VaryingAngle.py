@@ -21,12 +21,15 @@ def getResultForAngle(angle):
     return s.scanSpectrum(wlRange,1)[1]
     
 if __name__ == '__main__':
+    """    
     with Pool(processes = 4) as pool:
         res = pool.map(getResultForAngle, angleListR) # Select the 2nd element of the result array
     resArray  = np.array(res).swapaxes(0,1)
-    resData = specData(wlRange, resArray)
+    """
     #np.save('angleDependence0_89',resArray)
     #%%Plotting data
+    resArray = np.load('angleDependence0_89.npy')
+    resData = specData(wlRange, resArray)
     from report_Paras import figPath
     def plotWl():
         pl.figure(figsize = (3.3,2.8))
@@ -40,12 +43,14 @@ if __name__ == '__main__':
     #plotWl()
     #pl.legend()
     #%% Plot trace of the peaks
+    """
     pl.figure(figsize = (3.3, 2.8))
     pl.plot(angleList,resData.getPeaks()[0],'-x')
     pl.title('Trace of peak')
     pl.ylabel('Wavelength /nm')
     pl.xlabel('Incidenct angle /degree')
     pl.tight_layout()
+    """    
     #pl.savefig(figPath + 'TraceOfPeakVsAngles.pdf')
     #pl.plot(angleList, np.cos(angleList) * 460)
     #%% Plot the 2d representation
@@ -57,3 +62,14 @@ if __name__ == '__main__':
     pl.ylabel('Incident angle /degree')
     pl.xlabel('Wavelength /nm')
     #pl.savefig(figPath + 'SpectrumVsIncidentAngle.pdf')
+    #%% Plot of color
+    from colourTools import specToRGB
+    RGB = np.empty((resArray.shape[1],3))
+    
+    for i,spec in enumerate(resArray.T):
+        RGB[i] = specToRGB([wlRange, spec])
+    pl.imshow([RGB],aspect = 'auto')
+    pl.figure()    
+    pl.plot(range(90),RGB[:,0],color = 'r')
+    pl.plot(range(90),RGB[:,1],color = 'g')
+    pl.plot(range(90),RGB[:,2],color = 'b')

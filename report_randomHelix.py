@@ -36,8 +36,12 @@ if __name__ == '__main__':
     for dphi, _avg, _std in zip(dphiList, avg, std):
         pl.errorbar(wlRange, _avg, _std, label = r'$\delta \theta = $' + str(dphi))
     pl.xlabel('Wavelength /nm')
-    pl.ylabel('Reflectance LCP')
+    pl.ylabel('Reflectance (LL)')
     pl.legend()
-    pl.xlim(500,650)    
-    pl.tight_layout()
+    pl.xlim(500,650)
+    pl.ylim(0,0.3)    
+    pl.title('Randomised helix')
+    pl.tight_layout(pad = 0.5)    
+    from report_Paras import figPath
+    pl.savefig(figPath + 'RandomHelix.pdf')
     

@@ -343,10 +343,10 @@ class Structure():
     A superclass represent a type of structure
     """
     propagtor = Propagator(method = 'eig')
-    optParas = {}
-    phyParas = {}
+
     def __init__(self):
-        raise NotImplementedError
+        self.optParas = {}
+        self.phyParas = {}
         
     def constructEpsilon():
         """A method to construct the relative dielectric tensor"""
@@ -396,6 +396,7 @@ class HomogeneousStructure(Structure):
     sType = 'homo'
     
     def __init__(self, material, t):
+        super(HomogeneousStructure,self).__init__()
         self.setPhyParas(material, t)
         self.info = {"Type":"Homogeneous", "TotalThickness": self.phyParas['t']}
         
@@ -428,7 +429,7 @@ class Helix(Structure):
     """
     sType = 'helix'
 
-    def __init__(self):
+    def __init__(self, *argv, **phyParas):
         """
         input arguments:
             
@@ -440,11 +441,12 @@ class Helix(Structure):
             
             aor: intrinsic angle of rotation of the helix
         """
-
+        super(Helix, self).__init__()
+        self.phyParas.update(phyParas)
 
     def setPhyParas(self, material, pitch, t, d, handness, aor = 0):
         """Set the physical parameters of the class"""
-        self.phyParas = {'Description':'General Helix', 'd':d , 
+        self.phyParas = {'Description':'Helix', 'd':d , 
         'sliceThickness': t / d, 'p': pitch, 't': t,
         'm': material, 'aor': aor, 'handness': handness}
         
@@ -454,9 +456,7 @@ class Helix(Structure):
         
     def setPitch(self, pitch):
         """set the pitch of the helix"""
-        d = self.phyParas['d']
-        newParas = {'p':pitch, 'sliceThickness': pitch / d}
-        self.phyParas.update(newParas)
+        self.phyParas.update({'p':pitch})
         
     def setThickness(self, t):
         """set the thicknes of the helix"""
@@ -471,7 +471,14 @@ class Helix(Structure):
         to be rotated for each layer. These are the physics angles to be rotated"""
         p = self.phyParas
         endAngle = p['t'] / p['p'] * p['handness'] * np.pi
-        return np.linspace(0, endAngle, p['d'], endpoint = False) + p['aor']
+        return np.linspace(0, endAngle, p['d'], endpoint = False) + p['aor']   
+    
+    def getSliceThickness(self):
+        """
+        Return the slice thickness based on current setting of total thickness
+        and number of divisions
+        """
+        return self.phyParas['t'] / self.phyParas['d']
         
     def getPartialTransfer(self, q = None):
         """
@@ -483,7 +490,8 @@ class Helix(Structure):
         if p['t'] == 0:
             return np.identity(4)
         # First we spawn a list of HomogeneousStructures
-        layerList = [HomogeneousStructure(p['m'],p['sliceThickness']) for i in range(p['d'])]
+        sliceT = self.getSliceThickness()
+        layerList = [HomogeneousStructure(p['m'],sliceT) for i in range(p['d'])]
         # Then we set the .Phi of each layer.
         PhiList = -(self.getAngles() - o['Phi']) # Note the reqired .Phi is the opposite of the angles of the phyiscs rotation
         PMatrices = []
@@ -495,6 +503,29 @@ class Helix(Structure):
         #Take dot product for all 4x4 slices the first axis 
         return  mfc.stackDot(PMatrices)
             
+        
+class HelixCustom(Helix):
+    """
+    A class that allow custom orientation of each layer in a chiral medium
+    """
+    
+    def __init__(self, **phyParas):
+        super(HelixCustom, self).__init__(**phyParas)
+        self.angleList = []
+    
+    def getAngles(self):
+        """
+        Get a list of angles. This function should also update the thickness
+        """
+        if self.angleList == []:
+            raise RuntimeError('angles not calculated')
+        return self.angleList
+        
+    def calcStandardAngles(self):
+        """
+        Calculated the standard angle list and store it in self.angleList
+        """
+        self.angleList = Helix.getAngles(self)
         
         
 class HeliCoidalStructure(Helix):
@@ -543,121 +574,6 @@ class HeliCoidalStructure(Helix):
         n = int(p['t']/p['p'])
         return np.linalg.matrix_power(unitT,n).dot(remainderT)
         
-#%% Need to be cleaned up
-class AnyHeliCoidalStructure(Structure):
-    """A generalised helicoidalStucture"""
-    Phi = 0 #Set the angle phy to be zero in the start
-    Kx = None
-    sType = 'helix'
-    def __init__(self, material, d, t, handness ='left', Phi = 0):
-        """
-        * material: A Material Class object
-        
-        * pitch: A 2*N array containting pitch as a function of depth to be 
-        interpolated
-        
-        * d: TOTAL division of the structure
-        
-        * t: TOTAL thickness of the structure
-        
-        * handness: 'left' or 'right'
-        """
-        
-        self.material = material
-        self.d = d
-        self.t = t
-        self.handness = handness
-        self.Phi = Phi
-    def getInfo(self):
-        """Get infomation of the structure"""
-        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
-        
-    def setPitchProfile(self, pitchProfile):
-        self.pitchProfile = pitchProfile
-        if self.t != pitchProfile.totalThickness:
-            print('Inconsistent thickness replacing using stucture')
-            self.pitchProfile.totalThickness = self.t
-            
-        if self.handness != pitchProfile.handness:
-            print('Inconsistent handness replacing using stucture')
-            self.pitchProfile.handness = self.handness
-        
-    def getAngles(self):
-        """Get angles for constructuing Epsilon"""
-        zList = np.linspace(0, self.t, self.d, endpoint = False)
-        zList += self.t/self.d/2 #Evaluate at the midpoint of each layer
-        self.angles = self.pitchProfile.getAngles(zList)
-        
-    def constructEpsilon(self):
-        self.getAngles()
-        epsilon = self.material.getTensor(self.wl)
-        self.epsilon = [mfc.rotedEpsilon(epsilon, theta) for theta in self.angles]
-        
-    def constructDelta(self):
-        self.delta = [mfc.buildDeltaMatrix(e,self.Kx) for e in self.epsilon]
-    
-    def getPartialTransfer(self, q = None, updateEpsilon = True):
-        if updateEpsilon:    
-            self.constructEpsilon()
-        self.constructDelta()
-        d= self.t / self.d
-        k0 = 2*np.pi/self.wl
-        PMatrices = [self.propagtor(delta, d, k0, q) for delta in self.delta]
-        self.partialTransfer = mfc.stackDot(PMatrices)
-        self.partialTransferParameters = {"wavelength":self.wl, "Kx":self.Kx, "phy": self.Phi}
-        
-        return self.partialTransfer
-        
-        
-class customHeliCoidal(HeliCoidalStructure):
-    """A  non standard helicoidal strucuture"""
-    
-    def __init__(self, material, pitch, d, t, handness = 'left'):
-        """
-        Initialise the structure by passing material pitch, division per 
-        pitchand total thickness. Handness is left by default
-        * Here d is the TOTAL number of divisions
-        """
-        self.divisionThickness = t / d
-        # Set handness of the helix
-        if handness == 'left':
-            self._handness = -1
-        elif handness == 'right':
-            self._handness = 1
-        else: raise RuntimeError('Handness need to be either left or right')
-        # Calculate the angles
-        # We set the "Repeating unit" to be whole thickness and number of repeatation be 1
-        self.anglesRepeating = np.linspace(0, t/pitch*np.pi * self._handness, d, endpoint = False)
-        # Need to offset the angle in order to evaluate at the midpoint of a layer
-        self.anglesRepeating += self.divisionThickness / pitch / 2 * np.pi * self._handness
-        self.nOfReapting = 1
-        # Set material
-        self.material = material
-        
-    def getInfo(self):
-        """Get infomation of the structure"""
-        return {"Type":"HeliCodidal", "Pitch": self.p, "DivisionPerPitch": self.d,\
-        "Handness":self._handness, "TotalThickness": self.t}
-        
-    def injectRandomRotation(self, randomness, dstr = 'linear'):
-        """
-        Add randomness to the azmuthal rotation for each layer
-        
-        * randomness:  Measure of randomness of rad/nm
-        * dstr: Type of distibution
-        """
-        # Scale the angle addition with the layer thickness
-        factor = randomness * self.divisionThickness
-        if dstr == 'linear':
-            randomAngle = (np.random.random_sample(len(self.anglesRepeating)) - 0.5) * factor
-        elif dstr == 'std':
-            randomAngle = np.random.standard_normal(len(self.anglesRepeating)) * factor
-        else:
-            print('Please select valid randomnisation method')
-            return
-        
-        self.anglesRepeating += randomAngle
 #%% OptSystem Class definition
 
 class OptSystem():
@@ -788,7 +704,8 @@ class OptSystem():
 #%%Some staff for convenience
 air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)
-
+glass = HomogeneousNondispersiveMaterial(1.55)
+glassHalfSpace = IsotropicHalfSpace(glass)
 if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent
@@ -807,10 +724,12 @@ if __name__ == "__main__":
     """
     #Test for angled incidence
     from preset import *
-    s.setIncidence(500, 0,0)
-    res1 = s.scanSpectrum(wlRange, 1)
-    s.setIncidence(500,np.pi/3,0)
-    res2 = s.scanSpectrum(wlRange, 1)
-    pl.plot(res1[0],res1[1],label = 'Normal Incidence')
-    pl.plot(res2[0],res2[1],label = '45 degree')
-    pl.legend()
+    def run():
+        s.setIncidence(500, 0,0)
+        res1 = s.scanSpectrum(wlRange, 1)
+        s.setIncidence(500,np.pi/3,0)
+        res2 = s.scanSpectrum(wlRange, 1)
+        pl.plot(res1[0],res1[1],label = 'Normal Incidence')
+        pl.plot(res2[0],res2[1],label = '45 degree')
+        pl.legend()
+        return

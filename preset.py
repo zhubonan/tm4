@@ -24,16 +24,17 @@ glasshalf = sim.IsotropicHalfSpace(glass)
 s = sim.OptSystem()
 s.setHalfSpaces(airhalf,glasshalf)
 heli = sim.HeliCoidalStructure
-h1 = heli(CNC,150,1000)
+h1 = heli(CNC,180,1000)
 s.setStructure([h1])
-wlRange = np.linspace(350,850,100)
+wlRange = np.linspace(400,800,100)
+"""
 print('Followings are added to the scope', flush = True)
 print('Materials: CNC, air, cellulosem, glass', flush = True)
 print('HalfSpace: airhalf, glasshalf', flush = True)
 print('OptSystem:s', flush = True)
 print('heli as HeliCoidalStructure', flush = True)
 print('wlRange as 400 to 800 nm', flush = True)
-
+"""
 def plotSpectrum(OptSys, wlRange):
     result = OptSys.scanSpectrum(wlRange)
     pl.plot(result[0],result[1], color = specToRGB(result))

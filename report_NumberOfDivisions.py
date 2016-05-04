@@ -10,20 +10,20 @@ import numpy as np
 from preset import CNC
 from multiprocessing import Pool
 #Define the range of division we want
-div = [2,3,10,20,30,35]
+div = [1,2,3,10,20,30,35]
 airHalf = sim.airHalfSpace
 glassHalf = sim.glassHalfSpace
 s = sim.OptSystem()
 s.setHalfSpaces(airHalf, glassHalf)
 wlRange = np.linspace(400,800,200)
-
+testMaterial = sim.UniaxialMaterial(1.6,1.5)
 def calcDivLL(div):
-    h1 = sim.HeliCoidalStructure(CNC, 180, 1800, d = div)
+    h1 = sim.HeliCoidalStructure(testMaterial, 180, 1800, d = div)
     s.setStructure([h1])
     return s.scanSpectrum(wlRange,1)
 
 def calcDivRR(div):
-    h1 = sim.HeliCoidalStructure(CNC, 180, 1800, d = div)
+    h1 = sim.HeliCoidalStructure(testMaterial, 180, 1800, d = div)
     s.setStructure([h1])
     return s.scanSpectrum(wlRange,1,coupling='RR')
     
@@ -39,16 +39,16 @@ if __name__ == '__main__':
         pl.subplot(211)
         for i, (wl, spec) in enumerate(resLL):
             pl.plot(wl,spec, label = 'd= ' + '{0:.0f}'.format(div[i]))
-        pl.ylim(0,0.3)
+        pl.ylim(0,0.6)
         pl.ylabel('Reflectance LL')
         pl.legend(fontsize = 8)
         pl.title('Reflectance and number of division')
         pl.subplot(212)
         for i, (wl, spec) in enumerate(resRR):
             pl.plot(wl,spec, label = 'd= ' + '{0:.0f}'.format(div[i]))
-        pl.ylim(0,0.3)
+        pl.ylim(0,0.6)
         pl.legend(fontsize = 8)
         pl.xlabel('Wavelength /nm')
         pl.ylabel('Reflectance RR')
         pl.tight_layout()
-    #pl.savefig(figPath+'RvsDiv.pdf')
+    pl.savefig(figPath+'RvsDiv.pdf')

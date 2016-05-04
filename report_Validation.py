@@ -27,6 +27,7 @@ matchedHalf = sc.IsotropicHalfSpace(sc.HomogeneousNondispersiveMaterial((no + ne
 s = sc.OptSystem()
 s.setHalfSpaces(matchedHalf, matchedHalf)
 heli = sc.HeliCoidalStructure(testMaterial, p, h, div)
+heli.propagtor.setMethod('Pade')
 s.setStructure([heli])
 def computeB():
     return s.scanSpectrum(wlRange,1)[1]
@@ -58,9 +59,8 @@ if __name__ == "__main__":
     yRes = computeY()
     tRes = computeT()
     #%% Plotting
-    pl.rcParams['axes.labelsize'] = 9
-    pl.rcParams['figure.titlesize'] = 10
-    pl.figure(figsize = (5,5*2/3))
+    pl.rcParams['font.size'] = 8
+    pl.figure(figsize = (3.3,2.5))
     #pl.rcParams['a']
     pl.plot(wlRange, tRes, '-',label = "Theotical")
     pl.plot(wlRange, bRes, '+',label = "Berreman")
@@ -68,6 +68,6 @@ if __name__ == "__main__":
     pl.title("Comparing three models")
     pl.xlabel('Wavelength /nm')
     pl.ylabel('Reflectance L-L')
-    pl.legend(loc = 2, fontsize = "small")
+    pl.legend(loc = 2, fontsize = 8)
     pl.tight_layout()
     #pl.savefig("../PartIIIReport/fig/validation.pdf")

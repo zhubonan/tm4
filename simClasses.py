@@ -106,10 +106,11 @@ class Propagator():
             self._i = -1
         else:
             self._i = 1
-            
+        self.q = 1
     def setMethod(self, method):
         self.method = method
-        
+    def setQ(self, q):
+        self.q = q
     def __call__(self, Delta, h, k0,q):
         """
         'Delta' : Delta matrix of the homogeneous material
@@ -118,6 +119,8 @@ class Propagator():
         'q' : order of the approximation method, if useful
         Returns a ndarry of the propagator for the division
         """
+        #Ignore the passed value 
+        q = self.q
         if   self.method == "linear":    return np.identity(4) + 1j * h * k0 * Delta * self._i
         elif self.method == "Pade":      return sp.linalg.expm(1j * h * k0 * Delta * self._i, q)
         elif self.method == "Taylor":    return sp.linalg.expm3(1j * h * k0 * Delta * self._i, q + 1)
@@ -395,20 +398,20 @@ class HomogeneousStructure(Structure):
     """
     sType = 'homo'
     
-    def __init__(self, material, t):
+    def __init__(self, material, t, aor = 0):
         super(HomogeneousStructure,self).__init__()
-        self.setPhyParas(material, t)
+        self.setPhyParas(material, t, aor)
         self.info = {"Type":"Homogeneous", "TotalThickness": self.phyParas['t']}
         
-    def setPhyParas(self, material, t):
+    def setPhyParas(self, material, t, aor = 0):
         
-        self.phyParas.update({'m':material, 't':t})
+        self.phyParas.update({'m':material, 't':t, 'aor': aor})
         
     def constructDelta(self):
         o = self.optParas
         wl, Phi, Kx= o['wl'], o['Phi'], o['Kx']
         e =self.phyParas['m'].getTensor(wl)
-        e = mfc.rotedEpsilon(e, -Phi)
+        e = mfc.rotedEpsilon(e, self.phyParas['aor']-Phi)
         self.delta = mfc.buildDeltaMatrix(e, Kx)
     
     def getPartialTransfer(self):
@@ -676,6 +679,14 @@ class OptSystem():
                 return self.prop.RC[0,0].real
             elif coupling == 'RR':
                 return self.prop.RC[1,1].real
+            elif coupling == 'SS':
+                return self.prop.RP[1,1].real
+            elif coupling == 'PP':
+                return self.prop.RP[0,0].real
+            elif coupling == 'full':
+                return self.prop
+            else:
+                raise RuntimeError('Output not specified')
     
     def scanSpectrum(self, wlList,  coreNum = 1, giveInfo = False, coupling = 'LL'):
         """Cacluate the respecon at the given wavelengths. 

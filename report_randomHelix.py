@@ -4,10 +4,11 @@ Created on Wed May  4 15:41:09 2016
 Add randomness to the helix
 @author: Bonan
 """
-from preset import s, CNC, wlRange
+from preset import s,  CNC, wlRange
 import numpy as np
 import simClasses as sim
 import matplotlib.pyplot as pl
+testMaterial = sim.UniaxialMaterial(1.6,1.5)
 hrandom = sim.HelixCustom(p = 180, t = 1800, d = 90, aor = 0, m = CNC, handness = -1)
 # Inject random variations
 def calc(dphi):
@@ -43,5 +44,5 @@ if __name__ == '__main__':
     pl.title('Randomised helix')
     pl.tight_layout(pad = 0.5)    
     from report_Paras import figPath
-    pl.savefig(figPath + 'RandomHelix.pdf')
+    #pl.savefig(figPath + 'RandomHelix.pdf')
     

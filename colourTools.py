@@ -31,7 +31,7 @@ def splineInterp(xNew, xRaw, yRaw):
     Compute the spline interpolation(cubic) of the data
     """
     tck = interpolate.splrep(xRaw,yRaw)
-    return interpolate.splev(xNew, tck, der = 0)
+    return interpolate.splev(xNew, tck, der = 0, ext = 1)
     
 def specToXYZ(spec, SI = 'D65'):
     """

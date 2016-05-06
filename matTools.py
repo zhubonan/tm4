@@ -219,14 +219,13 @@ class specData():
     def getPeaks(self, dim = 1 ,show = False):
         """Return the peak wavelength and peak height in a tuple"""
         s, n = self.spec.shape
-        l = np.sqrt(int(n))
         peakH = np.max(self.spec, axis = 0)
         peakWl = np.zeros(n)
         for i in range(n):
             peakWl[i] = self.wl[self.spec[:,i] == peakH[i]]
         if dim == 2:
-            peakH = peakH.reshape((l,l))
-            peakWl = peakWl.reshape((l,l))
+            peakH = peakH.reshape(self.spacialShape)
+            peakWl = peakWl.reshape(self.spacialShape)
             if show == True:
                 return disp2DPeakData(peakWl, peakH)
         return peakWl, peakH
@@ -247,7 +246,7 @@ class specData():
         return gArray
     
     
-    def plotLineSlice(self, start, finish ,num):
+    def plotLineSlice(self, start, finish ,num, show = 1):
         """Plot the spectrum using imshow along an arbitrary line.
         Spline interpolation is used. This uses scipy.ndimage.map_coordinates function.
         The spectral data is treated as a stack of 2D images along the first axes.        
@@ -270,13 +269,14 @@ class specData():
         #We interoplate at each wavelength
         #Need to transpose each images since the ordering is different as in imshow the 1st axis is the Y axis not X
             zi[i] = sp.ndimage.map_coordinates(data[i].T, np.vstack((x,y)))
-        pl.imshow(zi, aspect='auto', extent = [0,num,self.range[1],self.range[0]])
-        ##Plot the back grount
-        self.get2DColouredImage(show = 1)#Supresss the display of image
-        ##Now plot the actual line
-        pl.plot((start[0],finish[0]), (start[1],finish[1]), 'ro-')
-        pl.xlim(0,l[0])
-        pl.ylim(0,l[1])
+        if show:
+            pl.imshow(zi, aspect='auto', extent = [0,num,self.range[1],self.range[0]])
+            ##Plot the back grount
+            self.get2DColouredImage(show = 1)#Supresss the display of image
+            ##Now plot the actual line
+            pl.plot((start[0],finish[0]), (start[1],finish[1]), 'ro-')
+            pl.xlim(0,l[0])
+            pl.ylim(0,l[1])
         return zi
     
     
@@ -316,7 +316,9 @@ class scanData:
         """Select the current struct from"""
         self.currentStruct = self.scan[index,0]
         
-    def getCurrentSpecData(self):
+    def getCurrentSpecData(self, index = None):
+        if type(index) != type(None):
+            self.selectStruct(index)
         return specData(self.wl, self.currentStruct.spec, self.currentStruct.desc)
     
     @staticmethod

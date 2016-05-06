@@ -6,6 +6,7 @@ Converting reflectance spectrum to a CIE coordinate
 """
 import numpy as np
 from scipy import interpolate
+import os
 #Adobe RGB (1998) D65 as reference white
 #http://www.brucelindbloom.com/index.html?Eqn_XYZ_to_RGB.html
 _RGB_to_XYZ =  np.array([
@@ -17,9 +18,13 @@ _XYZ_to_RGB =  np.array([
  [-0.9692660,  1.8760108, 0.0415560],
  [0.0134474, -0.1183897,  1.0154096],])
 # Load the 
-CIE_XYZ_table = np.loadtxt('CIE_1931_XYZ.txt').T # Transpose column into rows
-CIE_A = np.loadtxt('CIE_A.txt').T
-CIE_D65 = np.loadtxt('CIE_D65.txt').T
+_dirname = os.path.dirname(__file__)
+fn1 = os.path.join(_dirname, 'CIE_1931_XYZ.txt')
+fn2 = os.path.join(_dirname, 'CIE_A.txt')
+fn3 = os.path.join(_dirname, 'CIE_D65.txt')
+CIE_XYZ_table = np.loadtxt(fn1).T # Transpose column into rows
+CIE_A = np.loadtxt(fn2).T
+CIE_D65 = np.loadtxt(fn3).T
 
 def splineInterp(xNew, xRaw, yRaw):
     """

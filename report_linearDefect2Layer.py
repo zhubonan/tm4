@@ -222,13 +222,16 @@ if __name__ == '__main__':
         #c.getResultForPoint(0)
         t = clock()
         # %%Calculation
+        """
         with Pool(processes = 8) as pool:
             calc = partial(c.getResultForPoint, wlList = wlRange)
             res = pool.map(calc, list(range(nop)))
-        # %% Plottign
-        name = getSaveName()
+        name = getSaveName() + '2Layer'
         np.save(name, res)
         print(clock()-t)
+        """
+        res = np.load('results/20160505-1351142Layer.npy')
+        # %% Plottign
         #%% Save plot of layer structure
         #%%Plotting the structure
         pl.rc('figure', figsize = (3.3,2.8))
@@ -247,7 +250,8 @@ if __name__ == '__main__':
         + " incident from right")
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
-        pl.savefig(name+"Structure.pdf")
+        pl.tight_layout(pad = 0.2)
+        pl.savefig(figPath+"LinearDefect2Structure.pdf")
         #%%Plotting Combined image £££££££
         fig = pl.figure()
         gs = gridspec.GridSpec(1, 2, width_ratios=[10,1])
@@ -266,6 +270,6 @@ if __name__ == '__main__':
         ax2.set_title("RGB")
         ax2.set_xticks([])
         ax2.set_yticks([])
-        pl.tight_layout(pad = 0)
-        pl.savefig(name+ "CombinedSpectrum.pdf")
+        pl.tight_layout(pad = 0.2)
+        pl.savefig(figPath+ "LinearDefect2Spectrum.pdf")
         ####

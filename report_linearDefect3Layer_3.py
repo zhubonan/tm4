@@ -247,13 +247,13 @@ if __name__ == '__main__':
         pl.plot(np.zeros(x.shape[0]), x, '.-')
         pl.xlim(0, c.d+2000)
         pl.ylim((c.l, 0))
-        pl.annotate('', (5000,500), (7000,500),
+        pl.annotate('', (2000,500), (3500,500),
                     arrowprops=dict(facecolor='black', headwidth = 10, width = 1,headlength = 10))
         pl.title('Pitch ='+ str([x.phyParas['p'] for x in c.tmp])
         + " Incident from right")
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
-        #pl.savefig(figPath+"LinearDefect3StructureWithMismatch.pdf")
+        pl.savefig(figPath+"LinearDefecte205200Structure.pdf")
         #%%Plotting Combined image £££££££
         fig = pl.figure()
         gs = gridspec.GridSpec(1, 2, width_ratios=[10,1])
@@ -273,5 +273,5 @@ if __name__ == '__main__':
         ax2.set_xticks([])
         ax2.set_yticks([])
         pl.tight_layout(pad = 0)
-        #pl.savefig(figPath+ "LinearDefect3SpectrumWithMismatch.pdf")
+        pl.savefig(figPath+ "LinearDefecte205200Spectrum.pdf")
         ####

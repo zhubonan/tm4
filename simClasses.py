@@ -717,6 +717,7 @@ air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)
 glass = HomogeneousNondispersiveMaterial(1.55)
 glassHalfSpace = IsotropicHalfSpace(glass)
+CNC = UniaxialMaterial(1.586,1.524) 
 if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent

@@ -146,8 +146,8 @@ class CrossSection():
         _s.setThickness(self.t[pointIndex])
         ## Align each helix
         if align == True:
-            _s.structures[2].phyParas['aor'] = s.structures[0].phyParas['t'] / \
-            _s.structures[0].phyParas['p'] + 3 * np.pi * pointIndex / len(self.t)
+            _s.structures[1].phyParas['aor'] = s.structures[0].phyParas['t'] / \
+            _s.structures[0].phyParas['p'] + -4 * np.pi * pointIndex / len(self.t)
             #_s.structures[2].phyParas['aor'] = s.structures[0].phyParas['t'] / \
             #_s.structures[0].phyParas['p'] 
             """
@@ -198,10 +198,10 @@ def showLayerStructure(c):
         
 #%%
 def f1(x):
-    return 1000 
+    return 1500 
     
 def f2(x):
-    return 1000
+    return 500
     
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
@@ -209,20 +209,18 @@ def getSaveName():
     
 if __name__ == '__main__':
     from report_Paras import figPath
-    pitchesList1 = [[180,200,220]]
-    nop = 40 #Number of points to sample along the defect
-    CNC = sim.UniaxialMaterial(1.58,1.52)
-    wlRange = np.linspace(500,750,50)
+    pitchesList1 = [[205,200,180]]
+    nop = 100 #Number of points to sample along the defect
+    CNC = sim.CNC
     for pitches in pitchesList1:
-        wlRange = np.linspace(400,800,200)
+        wlRange = np.linspace(450,750,100)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
         h3 = heli(CNC, pitches[2], 1000)
-        tmp = [h1,h2,h3]
+        tmp = [h1,h2]
         #%% Set layer structure
-        c = CrossSection(s, 2000,1000,3)
+        c = CrossSection(s, 2000,1000,2)
         c.setInterfaceFunction(f1,0)
-        c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
@@ -231,7 +229,7 @@ if __name__ == '__main__':
         #c.getResultForPoint(0)
         t = clock()
         # %%Calculation
-        with Pool(processes = 3) as pool:
+        with Pool(processes = 8) as pool:
             calc = partial(c.getResultForPoint, wlList = wlRange)
             res = pool.map(calc, list(range(nop)))
         # %% Plottign
@@ -265,7 +263,7 @@ if __name__ == '__main__':
                   extent = [wlRange[0], wlRange[-1],  1000, 0])
         ax1.set_xlabel("Wavelength /nm")
         ax1.set_ylabel("Distance /a.u.")
-        ax1.set_xticks(np.arange(400,801,100))
+        ax1.set_xticks(np.arange(450,751,50))
         pl.colorbar(sPlot, ax = ax1)
         resArray = np.array(res)
         spec = mt.specData(wlRange,resArray.T)

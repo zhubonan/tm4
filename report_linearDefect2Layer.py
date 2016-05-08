@@ -251,7 +251,7 @@ if __name__ == '__main__':
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
         pl.tight_layout(pad = 0.2)
-        pl.savefig(figPath+"LinearDefect2Structure.pdf")
+        pl.savefig(figPath+"LD2S.pdf")
         #%%Plotting Combined image £££££££
         fig = pl.figure()
         gs = gridspec.GridSpec(1, 2, width_ratios=[10,1])
@@ -271,5 +271,5 @@ if __name__ == '__main__':
         ax2.set_xticks([])
         ax2.set_yticks([])
         pl.tight_layout(pad = 0.2)
-        pl.savefig(figPath+ "LinearDefect2Spectrum.pdf")
+        pl.savefig(figPath+ "LD2SPEC.pdf")
         ####

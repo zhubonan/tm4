@@ -26,12 +26,12 @@ if __name__ == '__main__':
         
     import matplotlib.gridspec as gridspec
     from multiprocessing import Pool
-        
+    """    
     with Pool(processes = 4) as pool:
         res = pool.map(getResultForAngle, angleListR) # Select the 2nd element of the result array
     resArray  = np.array(res).swapaxes(0,1)    
     np.save('angleDependence0_89',resArray)
-    
+    """
     #%%Plotting data
     resArray = np.load('angleDependence0_89.npy') #Using saved data
     resData = specData(wlRange, resArray)

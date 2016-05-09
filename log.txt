@@ -1,0 +1,147 @@
+* 2016-05-09	Plotting adjustment
+* 2016-05-08	Improved scripts for figures
+* 2016-05-08	Added script for generating spectrum to compare with D30 data
+* 2016-05-08	Added script for generating spectrum to compare with D30 data
+* 2016-05-07	Modified script for defect strcuture
+* 2016-05-06	Let out of bound wavelength be treated zero in colour tools
+* 2016-05-06	More plotting
+* 2016-05-04	Minor improvements
+* 2016-05-04	minor change
+* 2016-05-04	Added plot of number of divisions and effect of randomness
+* 2016-05-03	Added script for illustrating rotation of the liquid crystal director
+* 2016-05-03	Improvement on colorTools. Now the standard illuminator were taken into account. This should change the colour previously calculated slightly. Using reference chart data downloaded from cie website
+* 2016-05-01	Added validation script
+* 2016-05-01	Added slice along arbitary line
+* 2016-05-01	Added script to plot the reflection band
+* 2016-05-01	Added script to general reflectance with varying incident angle
+* 2016-05-01	Snapshot, bug seemed to be fixed for angled incidence
+* 2016-05-01	Snapshot, bug seemed to be fixed for angled incidence
+* 2016-04-30	added validation script
+* 2016-04-30	Bug Fix on the old class defs. k0 in the medium should be k0 times n the refractive index instead of k0/n
+* 2016-04-30	Apply git ignore
+* 2016-04-30	Vlidation script
+* 2016-04-29	Clean ups
+* 2016-04-28	Clean-up of tilting related things
+* 2016-04-28	Now let each helix to fully ultilise the HomogeneousStructure class
+* 2016-04-27	Refined linearDefect
+* 2016-04-27	test
+* 2016-04-26	Builtin multiprocessing is up. Need to find a way to allow persistent pool to exist
+* 2016-04-26	Added script for tracing peak of reflectivity spectrum
+* 2016-04-25	Added script to load data from linearDefect results
+* 2016-04-17	Change on GUI layout
+* 2016-04-13	Added gui design for spectral image data processing
+* 2016-04-05	Commit from the PC. Now changing mismatch of the layers along
+* 2016-04-04	Commit from the PC
+* 2016-04-04	CheckPoints
+* 2016-04-04	BUG FIX: previous alignment was wrong. It didn't take the intrinsic angle or rotation of overlaying helix into account
+* 2016-04-04	Checkpoint commit:featuring tilting
+* 2016-04-04	Checkpoint commit
+* 2016-04-04	Moved some function to the outside of the class linearDefect
+* 2016-04-03	Ready for long calculation2
+* 2016-04-03	Ready for long calculation
+* 2016-04-03	Delected a depricated line
+* 2016-04-03	New development on linearDefect and seems I resolved the origin of fringes
+* 2016-04-02	Bug fix and added features: tilted helices and control of intrinsic rotation. Written Helix class for better readibility. Not using dictionarys to store relavent parameters: phyParas, optParas and tiltParas
+* 2016-04-02	Checkpoint2: need to confirm the results are consistent
+* 2016-04-02	Checkpoint
+* 2016-03-31	Refined class structure
+* 2016-03-31	Rewriting core codes Work in progress
+* 2016-03-31	Added new general class Helix for neater coding style
+* 2016-03-31	Added some doc strings to optsys class
+* 2016-03-29	Clean up some old scripts. Added example for ROX
+* 2016-03-16	Minor tweaks
+* 2016-03-15	Polised matTools. Can not filter, peak find the 2D data
+* 2016-03-15	Extended functionality for 2D spec data
+* 2016-03-14	Added functions for 2D Spectrum data
+* 2016-03-11	matTools now fully working
+* 2016-03-11	Added now use stacked data for specDataStack Class by default
+* 2016-03-10	Added new way to access, process spectrum data from scan.mat
+* 2016-03-08	minor change on docstring
+* 2016-03-08	Now multiprocessing can be used for linerDefect.py
+* 2016-03-07	Added functions to generate spectrum across a cross-section
+* 2016-03-03	Added linearDefect.py for simulating linear defect spectrum. Changed .info in structure class. Now it will be access using getInfo method and updated on demand
+*   2016-03-01	Merge branch 'dev' of ssh://ch-vignolini@git.csx.cam.ac.uk/BonanProject.git into dev
+|\  
+| * 2016-03-01	Extending functionality of mathFunc and simClasses
+* | 2016-03-01	Extending functionality of mathFunc and simClasses
+|/  
+* 2016-03-01	Modified matTools to comply with new development of the saving stype of scan.mat. New type scan.mat is also added to the folder for testing
+* 2016-02-29	modified the code that now the FT of the spectrum can be used for finding the value of n time d. Where n is the refractive index and d is the latyer thickness. The getFTSpectrum now produces the correct curve with x axis been n*d.
+* 2016-02-15	Added FFT of the spectrum
+* 2016-02-14	added tool for easy access of spectralmeter data
+* 2016-02-14	Added some useful methods in OptSystem class. Added function to convert spectrum to RGB coorindates. Tested the response of sandwitch strucutre
+* 2016-02-13	added some doc strings
+* 2016-02-13	Change the mechanism of HeliCoidalStructure. Now calculation will not start at instantiation. Added preset.py for fast deployment of computing environment.
+* 2016-02-09	Minor change
+* 2016-02-05	Added initial implementation of curve fitting. Need to write program into class style
+* 2016-02-05	Added function to calculate merit for curve fitting
+* 2016-02-05	Added polynomial correction to the pitch profile
+* 2016-02-01	Added class StepPitchProfile that defines the pitch profile using numbers of steps. This allow sythesis of pitch profile from desired spectrum possible
+* 2016-02-01	Added class AnyHeliCoidal that can take any pitch profile
+* 2016-01-28	Added script intends to profile and thereby evaluate the computation performance
+* 2016-01-28	Added script for comparing with old berreman library
+* 2016-01-28	Filerenamed
+* 2016-01-27	Renamed files. Moved simulation Scripts to simScripts folder
+* 2016-01-26	Some changes to the class definition. scanSpectrum now returns the data for scannign instead of plotting on the current figure
+* 2016-01-25	Some minor changes
+* 2016-01-23	New class system working. Obtained consistent result with previous code. Solved a bug during impletmentaion: dielectric tensor of an material rotated required two rotionation to be computed. Old constructEpsion in HelicoirdalStructure class was wrong as it only rotated epsilon tensor once
+* 2016-01-23	Code written on OptSystem class. Now need to implement function to extra optical property from the overall transfer matrix
+* 2016-01-22	Finshed now Structure Class. Need to impletment the new HybridgeStructure Class and write the halfspace Class
+* 2016-01-22	New class structure in order to incorportate berreman's formulation and also allow for hybrid structures to be modeld; Work in progress
+* 2016-01-21	Minor change on the mathfunctions larger tolerence on searching null space vector
+* 2016-01-20	Fixed handling of division of helix stucture
+* 2016-01-20	Changed the rotation angle generation algorithm
+*   2016-01-20	Merge branch 'dev' of github.com:bonanz/TM4 into dev
+|\  
+| * 2016-01-19	Merging previous changes. Now using numpy math library. No longer importing functions from mathfunc into local scope
+* |   2016-01-20	Used local editing#
+|\ \  
+| |/  
+|/|   
+| * 2015-12-30	slight change
+* | 2016-01-19	Added class for homogeneous materials. Modified the toplevel script to compare with Berreman Lib's example on liquid crystal
+* | 2016-01-19	Chnage name of coupling matrices. Change toplevel1.py to compare results with other programs
+* | 2016-01-18	Change the method of calculating coeffcienting to be Coupling Matices based and introduced new Optical_Properties class for esier access to simulation results.
+* | 2016-01-18	Bug fix: Now the polarisation vectors in the incident/exiting material is properly calculated(set for normal incidence). Large asymmetry between left and right circular polarised light can be seen on normal incidence
+* | 2016-01-17	Bug fix: Calculation of angles of rotation was wrong previously as the endpoint of the np.linspace was not set to Flase. Need to check algorithum implementation for the normal incident case as there is no difference between L and R polarised light
+* | 2015-12-31	Refined class structure. Now use a abstract superclass to represent an general strack of anisotropic layers.
+* | 2015-12-31	Edited gitignore
+* | 2015-12-31	edited .gitignore
+* | 2015-12-30	Slight change
+* | 2015-12-30	Refine the methods involves inverting matrix. Should now give more accurate results
+* | 2015-12-30	Change class definition and implemented segmentation to spped up calculation of thick layers
+* | 2015-12-30	Added git ignore file
+* | 2015-12-30	added gitignore file
+|/  
+* 2015-12-30	changed the simulation script
+* 2015-12-30	Added circular polarisation calculation functionality
+*   2015-12-28	Merge branch 'master' of github.com:bonanz/TM4
+|\  
+| * 2015-12-20	Add function to change the overal-transfer matrix to circular polarsied light. However, no significant difference in L/R polarised incident light has been observed
+| * 2015-12-19	Impletmented calculation of transmisivity and reflectivity. Renamed files. Next step: build subclass using circular polarised light as basis
+* | 2015-12-28	Deleted test line
+|/  
+* 2015-12-18	First fully working calculation. Scaled the problem so that the incident wavevector in vaccum is 1. The thickness of the layers are adjusted accordingly. Arbitory unit is used for magnetic field vector so that the calculation is in the order of 1(need to check if this is ok though).
+*   2015-12-18	Conflict resolved
+|\  
+| * 2015-12-18	Added a few comments
+* | 2015-12-18	Replace function for finding p with null vector searching function using SVD decompistion. Need to properly scale the system otherwise the numberical rounding errors are too large to handle
+|/  
+* 2015-12-16	Corrected the problem of generating q vectors for each layer. need to think about the meaning of complex amplitude and phase shift next
+* 2015-12-15	Tried to use sympy to get better matrix algebra accuracy but so far no success
+* 2015-12-15	Added function to calculate the effective transfer matrix for the medium. Incident and exiting medium is not implemented. Need to refine the units in order to reduce numerical calcualtion's error. Matrix inversion cannnot be calcualted accuratedly
+* 2015-12-15	Impletmented the current units. Need to work on the incident and exit medium polarisation
+* 2015-12-14	Updated math functions and class design
+*   2015-12-13	Merge branch 'master' of github.com:bonanz/TM4
+|\  
+| * 2015-12-13	added class definition file
+| * 2015-12-04	added comments for future check of units
+* | 2015-12-13	Change of math func.py
+|/  
+* 2015-12-01	Create README.md
+* 2015-12-01	more functions added
+* 2015-12-01	added functions to calculate k vector and polarisation
+*   2015-12-01	Merge branch 'master' of github.com:bonanz/TM4
+|\  
+| * 2015-11-30	initial commit with functions for polarisation vectors wirtten
+* 2015-12-01	added a few math functions

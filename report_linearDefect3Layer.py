@@ -249,8 +249,8 @@ if __name__ == '__main__':
         pl.ylim((c.l, 0))
         pl.annotate('', (5000,500), (7000,500),
                     arrowprops=dict(facecolor='black', headwidth = 10, width = 1,headlength = 10))
-        pl.title('Pitch ='+ str([x.phyParas['p'] for x in c.tmp])
-        + " Incident from right")
+        #pl.title('Pitch ='+ str([x.phyParas['p'] for x in c.tmp])
+        #+ " Incident from right")
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
         #pl.savefig(figPath+"LinearDefect3StructureWithMismatch.pdf")

@@ -37,7 +37,7 @@ pl.xlabel(r'$\mathsf{\mu m} $', fontsize = 9)
 pl.ylabel(r'$\mathsf{\mu m} $', fontsize = 9)
 #pl.title('RGB Image')
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingRGB.pdf')
+#pl.savefig(figPath + 'SpectroImagingRGB.pdf')
 
 #%% Spectrum
 pl.figure(figsize = (3.3,3))
@@ -60,7 +60,7 @@ ax2.set_xticks([])
 ax2.set_yticks([])
 pl.tight_layout(pad = 0)
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingSlice.pdf')
+#pl.savefig(figPath + 'SpectroImagingSlice.pdf')
 #%% Plot some stats data
 peakData = stempcf.getPeaks()
 pl.figure()
@@ -72,19 +72,19 @@ pl.title('Height vs Position')
 arrow2 = dict(facecolor='black', headwidth = 5, width = 2,headlength = 10)
 pl.annotate('Cut-off', [610,0.45],[650,0.5],arrowprops = arrow2)
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingStats.pdf')
+#pl.savefig(figPath + 'SpectroImagingStats.pdf')
 #%%Plot an example spectrum
 import simClasses as sim
 from preset import s,wlRange, CNC
 nBar = 1.55
-dn = 0.025
+dn = 0.028
 m = sim.UniaxialMaterial(nBar + dn, nBar-dn)
 #m = CNC
 s.structures[0].phyParas['m'] = m
 pl.figure(figsize = (3.3,2.8))
 pl.plot(stempcf.wl, (stempcf.spec[:,0])/2-0.025, label = 'Measured')
 s.setPitch([179.5])
-s.setThickness([2000])
+s.setThickness([1800])
 pl.plot(*s.scanSpectrum(wlRange), label = 'Fit-Best')
 s.structures[0].phyParas['m'] = CNC
 pl.plot(*s.scanSpectrum(wlRange), label = 'Fit-Default')

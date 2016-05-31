@@ -78,8 +78,21 @@ def polariserJ(theta):
     J = np.array([[1,0],[0,0]])
     return Ri.dot(J.dot(R))
     
+def vectorFromTheta(theta):
+    """
+    Return a unit vector in XY plane given the value of theta
+    
+    'theta' : a list of angles to be calculated
+    
+    return a 3xN array of N vectors calcuated
+    """    
+    X = np.cos(theta)
+    Y = np.sin(theta)
+    Z = np.zeros(len(theta))
+    return np.array([X,Y,Z])
     
 ######################OLD########################
+# For the depricated Yeh's methods
 def construct_epsilon_heli(epsilon_diag, pitch, divisions, thickness, handness = "left"):
     """
     construct the dielectric matrices of all layers
@@ -94,15 +107,6 @@ def construct_epsilon_heli(epsilon_diag, pitch, divisions, thickness, handness =
     else:
         raise NameError('Need thickness to be smaller than pitch')
     return np.array([rot_z(i).dot(epsilon_diag.dot(rot_z(-i))) for i in angles])
-
-
-def rot_z(theta):
-    """
-    Return rotation matrix that rotates with repect to z axis with theta degress
-    """
-    rot = np.array([[np.cos(theta), -np.sin(theta), 0],[np.sin(theta), np.cos(theta), 0]
-                    ,[0, 0, 1]])
-    return rot
 
     
 def calc_c(e, a, b , u = 1): # Check units
@@ -255,14 +259,6 @@ def incident_p(k):
     # return a 4x3 array of the four polarisation vectors
     return np.array([si,sr,pi,pr])
     
-def stack_dot(array):
-    """
-    Take the matrix product along 1st axis
-    """
-    product = np.identity(len(array[0]))
-    for i in array:
-        product = product.dot(i)
-    return product
 
 def calc_coeff(T):
     """
@@ -305,3 +301,8 @@ def calc_coupling_matrices(T):
     coupling_matrices = {"Plane_r":T_ir, "Plane_t":T_it, "Circular_r":T_ir_c, 
                           "Circular_t":T_it_c}
     return coupling_matrices
+    
+    
+if __name__ == '__main__':
+    e = np.diag([1,1,1])
+    print(calc_c(e,1,1,1))

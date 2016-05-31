@@ -531,6 +531,80 @@ class HelixCustom(Helix):
         self.angleList = Helix.getAngles(self)
         
         
+class HelixFast(Helix):
+    """
+    A class that uses alternative Yeh calculation routine when the incident is 
+    normal and each layer is a uniaxial slab
+    """
+    def __init__(self, **phyParas):
+        super(HelixFast, self).__init__(**phyParas)
+        
+    #Calculation routine
+    def getPQVectors(self):
+        """
+        Return a list of polarisation vectors
+        
+        return: (p, q) where p and q are 3xN array of 3x1 vectors
+        """
+        
+        angles = self.getAngles()
+        p = mfc.vectorFromTheta(angles)
+        q = mfc.rotZ(np.pi/2).dot(p)
+        return p , q
+        
+    def getPandD(self):
+        """
+        Calculate the P and D matrices for each layers
+        """
+        wl = self.optParas['wl']
+        d = self.phyParas['d']
+        e = self.phyParas['m'].getTensor(wl)
+        e_o = e[1,1] # Ordinary relative dielectric constant
+        e_e = e[0,0] # Extra-ordinary
+        # Wave vector for two modes note k_z = 1 we assumed during scaling
+        k_o, k_e = np.sqrt(e_o), np.sqrt(e_e) 
+        p, q = self.getPQVectors()
+        # Initialise storage space for P and D matrix
+        P, D = np.zeros((4,4,d), dtype = np.complex), np.zeros((4,4,d), dtype = np.float)
+        # We take the order of k, p ,q pair to be: k_e, -k_e, k_o, -k_o
+        # Note there is a angle of rotion of pi needed since p = k cross p
+        p1, p2, p3, p4 = p, -p, q, -q # here we can use q as
+        q1, q2, q3, q4 = q*k_e, -q * k_e, -p * k_o, p * k_o # q -> -p is rotation of pi/2
+        # Assign values to the D matrices        
+        D[:3:2,: ,:] = np.array([p1[:2], p2[:2], p3[:2], p4[:2]]).swapaxes(0,1)
+        D[1:4:2] =  np.array([q1[:2], q2[:2], q3[:2], q4[:2]]).swapaxes(0,1)
+        # Assign values to the P matrices
+        s = self.getSliceThickness() # get the slice thickness
+        k_0 = 2 * np.pi / wl # The magnitude of k vector in vaccum
+        P[0,0,:] = np.exp( -1j * s * k_0 * k_e)
+        P[1,1,:] = np.exp( 1j * s * k_0 * k_e)
+        P[2,2,:] = np.exp( -1j * s * k_0 * k_o)
+        P[3,3,:] = np.exp( 1j * s * k_0 * k_o)
+        # We now have P and D ready
+        return P.transpose((2,0,1)), D.transpose((2,0,1))
+        
+    def getPartialTransfer(self):
+        """
+        Get the partial transfer matrix with basis Ex, Ey, Hx, Hy
+        """
+        P, D = self.getPandD()
+        # Calcuate the transition to basis for partial waves with k_e, -k_e, k_o, -k_o
+        D0, DEnd = D[0], D[-1]
+        # Rows: D with px, qy, py, qx, Tr need : px, py, qx, qy
+        Tr0 = np.array([D0[0], D0[2], D0[3], D0[1]])
+        TrEnd = np.array([DEnd[0], DEnd[2], DEnd[3], DEnd[1]])
+        # Get the parital transfer matrix
+        # Now begin the loop to calculate the partial transfer matrix
+        # T for each layer is D[n] @ P[n] @ inv(D[n])
+        # @ is the matrix multiplication but for backward compatibility still use
+        # .dot sytex
+        T = np.identity(4, dtype = np.complex)
+        for i in range(self.phyParas['d']):
+            T = T.dot(D[i].dot(P[i]))
+            T = T.dot(np.linalg.inv(D[i]))
+        return T
+        # Change basis to be compatible with the rest of the code
+        
 class HeliCoidalStructure(Helix):
     """
     A class that speed up the calculation by dividing itself into a repeating 
@@ -735,6 +809,7 @@ if __name__ == "__main__":
     print(timeUsed)
     """
     #Test for angled incidence
+    """
     from preset import *
     def run():
         s.setIncidence(500, 0,0)
@@ -745,3 +820,11 @@ if __name__ == "__main__":
         pl.plot(res2[0],res2[1],label = '45 degree')
         pl.legend()
         return
+    """
+    # Testing the fast calcution routine        
+    h = HelixFast(m = CNC, t = 500, p = 150, d = 5, aor = 0, handness = -1)
+    h.setOptParas(500, 0)
+    P, D = h.getPandD()
+    res = h.getPartialTransfer()
+    print(res)
+    

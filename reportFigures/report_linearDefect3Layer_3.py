@@ -146,8 +146,7 @@ class CrossSection():
         _s.setThickness(self.t[pointIndex])
         ## Align each helix
         if align == True:
-            _s.structures[1].phyParas['aor'] = s.structures[0].phyParas['t'] / \
-            _s.structures[0].phyParas['p'] + -4 * np.pi * pointIndex / len(self.t)
+            _s.structures[1].phyParas['aor'] =  -2 * np.pi * pointIndex / len(self.t)
             #_s.structures[2].phyParas['aor'] = s.structures[0].phyParas['t'] / \
             #_s.structures[0].phyParas['p'] 
             """
@@ -201,7 +200,7 @@ def f1(x):
     return 1500 
     
 def f2(x):
-    return 500
+    return 3500
     
 def getSaveName():
     return "results\\" + time.strftime("%Y%m%d-%H%M%S")
@@ -209,18 +208,19 @@ def getSaveName():
     
 if __name__ == '__main__':
     from report_Paras import figPath
-    pitchesList1 = [[205,200,180]]
-    nop = 100 #Number of points to sample along the defect
+    pitchesList1 = [[200,180,200]]
+    nop = 50 #Number of points to sample along the defect
     CNC = sim.CNC
     for pitches in pitchesList1:
         wlRange = np.linspace(450,750,100)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
         h3 = heli(CNC, pitches[2], 1000)
-        tmp = [h1,h2]
+        tmp = [h1,h2,h3]
         #%% Set layer structure
-        c = CrossSection(s, 2000,1000,2)
+        c = CrossSection(s, 5000,1000,3)
         c.setInterfaceFunction(f1,0)
+        c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
@@ -229,12 +229,12 @@ if __name__ == '__main__':
         #c.getResultForPoint(0)
         t = clock()
         # %%Calculation
-        with Pool(processes = 8) as pool:
+        with Pool(processes = 4) as pool:
             calc = partial(c.getResultForPoint, wlList = wlRange)
             res = pool.map(calc, list(range(nop)))
         # %% Plottign
-        name = getSaveName()
-        np.save(name, res)
+        #name = getSaveName()
+        #np.save(name, res)
         print('time elipsed',clock()-t)
         #%%Plotting the structure
         pl.rc('figure', figsize = (3.3,2.8))
@@ -253,7 +253,7 @@ if __name__ == '__main__':
         + " Incident from right")
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
-        pl.savefig(figPath+"LinearDefecte205200Structure.pdf")
+        #pl.savefig(figPath+"LinearDefecte205200Structure.pdf")
         #%%Plotting Combined image £££££££
         fig = pl.figure()
         gs = gridspec.GridSpec(1, 2, width_ratios=[10,1])
@@ -273,5 +273,5 @@ if __name__ == '__main__':
         ax2.set_xticks([])
         ax2.set_yticks([])
         pl.tight_layout(pad = 0)
-        pl.savefig(figPath+ "LinearDefecte205200Spectrum.pdf")
+        #pl.savefig(figPath+ "LinearDefecte205200Spectrum.pdf")
         ####

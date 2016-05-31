@@ -5,10 +5,10 @@ Created on Sat Feb 13 20:09:06 2016
 @author: Bonan
 """
 
-import simClasses as sim
+import tm4.simClasses as sim
 import matplotlib.pyplot as pl
 import numpy as np
-from colourTools import specToRGB
+from tm4.colourTools import specToRGB
 pl.rcParams['figure.figsize'] = (8,6)
 pl.rcParams['savefig.dpi'] = 100
 #%%

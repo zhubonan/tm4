@@ -4,13 +4,13 @@ Created on Thu Jan 21 22:51:47 2016
 New class file
 @author: Bonan
 """
+import scipy as sp
+import numpy as np
+import tm4.mathFunc as mfc
+import matplotlib.pyplot as pl
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
 from functools import partial
-import scipy as sp
-import numpy as np
-import mathFunc as mfc
-import matplotlib.pyplot as pl
 from os import cpu_count
 #%%
 class customCall:

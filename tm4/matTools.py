@@ -7,7 +7,7 @@ from scipy.io import loadmat
 from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
 from scipy.signal import find_peaks_cwt, savgol_filter
-from colourTools import specToRGB
+from tm4.colourTools import specToRGB
 import numpy as np
 import matplotlib.pyplot as pl
 import scipy as sp

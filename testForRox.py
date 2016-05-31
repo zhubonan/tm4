@@ -5,8 +5,8 @@ Created on Tue Mar 29 14:55:12 2016
 @author: Bonan
 """
 
-from preset import *
-from simClasses import Helix
+from tm4.preset import *
+from tm4.simClasses import Helix
 #%% Investigate the effect of differnt divisions
 pl.figure()
 for div in np.arange(10,34,3):

@@ -569,21 +569,21 @@ class HelixFast(Helix):
         # We take the order of k, p ,q pair to be: k_e, -k_e, k_o, -k_o
         # Note there is a angle of rotion of pi needed since p = k cross p
         r = mfc.rotZ(np.pi/2)
-        p1, p2, p3, p4 = p, -p, q, -q  # The sign of polarisation vectors are arbitary
+        p1, p2, p3, p4 = p, p, q, q  # The sign of polarisation vectors are arbitary
         # For q vectors need to put minus sign due to negative kz
-        q1, q2, q3, q4 = q*k_e, q * k_e, r.dot(q) * k_o, r.dot(q) * k_o # q -> -p is rotation of pi/2
+        q1, q2, q3, q4 = q * k_e, -q * k_e, -p * k_o, p * k_o # q -> -p is rotation of pi/2
         # Assign values to the D matrices        
         D[:3:2,: ,:] = np.array([p1[:2], p2[:2], p3[:2], p4[:2]]).swapaxes(0,1)
-        D[1:4:2] =  np.array([q1[:2], q2[:2], q3[:2], q4[:2]]).swapaxes(0,1)
+        D[-1:0:-2] =  np.array([q1[:2], q2[:2], q3[:2], q4[:2]]).swapaxes(0,1)
         # Assign values to the P matrices
         s = self.getSliceThickness() # get the slice thickness
         k_0 = 2 * np.pi / wl # The magnitude of k vector in vaccum
-        P[0,0,:] = np.exp( -1j * s * k_0 * k_e)
-        P[1,1,:] = np.exp( 1j * s * k_0 * k_e)
-        P[2,2,:] = np.exp( -1j * s * k_0 * k_o)
-        P[3,3,:] = np.exp( 1j * s * k_0 * k_o)
+        P = np.array([[np.exp( -1j * s * k_0 * k_e), 0 ,0 ,0],
+              [0, np.exp( 1j * s * k_0 * k_e), 0, 0],
+              [0, 0, np.exp( -1j * s * k_0 * k_o), 0],
+              [0, 0, 0, np.exp( 1j * s * k_0 * k_o)]])
         # We now have P and D ready
-        return P.transpose((2,0,1)), D.transpose((2,0,1))
+        return P, D.transpose((2,0,1))
         
     def getPartialTransfer(self):
         """
@@ -599,15 +599,22 @@ class HelixFast(Helix):
         # Now begin the loop to calculate the partial transfer matrix
         # T for each layer is D[n] @ P[n] @ inv(D[n])
         # @ is the matrix multiplication but for backward compatibility still use
-        # .dot sytex
-        T = np.identity(4, dtype = np.complex)
-        for i in range(self.phyParas['d']):
-            T = T.dot(D[i]).dot(P[i])
-            T = T.dot(np.linalg.inv(D[i]))
+        # .dot sytex        
+        n = self.phyParas['d']
+        for i in range(n):
+            if i == 0:
+                # Here
+                T = P.dot(np.linalg.inv(D[0]))
+                continue
+            if i == n-1:
+                # Here
+                T = T.dot(D[i]).dot(P)
+                continue
+            T = T.dot(D[i]).dot(P).dot(np.linalg.inv(D[i]))
         self.T_eff = T #For debug
-        return Tr0.dot(T.dot(np.linalg.inv(TrEnd)))
+        return Tr0.dot(T).dot(np.linalg.inv(TrEnd))
         # Change basis to be compatible with the rest of the code
-        
+#%%        
 class HeliCoidalStructure(Helix):
     """
     A class that speed up the calculation by dividing itself into a repeating 
@@ -826,10 +833,15 @@ if __name__ == "__main__":
     """
     # Testing the fast calcution routine
     testMaterial = UniaxialMaterial(1.6,1.5)        
-    h = HelixFast(m = testMaterial, t = 180, p = 180, d = 30, aor = 0, handness = -1)
+    h = HelixFast(m = testMaterial, t = 1800, p = 180, d = 300, aor = 0, handness = -1)
     h.setOptParas(500, 0)
     P, D = h.getPandD()
     res = h.getPartialTransfer()
-    h.setOptParas(500,0,0)
     T = h.T_eff
-    
+    from preset import *
+    s.setStructure([h])
+    pl.plot(*s.scanSpectrum(wlRange,1))
+    s.setStructure([h1])
+    h1.setPhyParas(testMaterial, 180, 1800, 30, aor = 0, handness = -1)
+    pl.figure()
+    pl.plot(*s.scanSpectrum(wlRange,1))    

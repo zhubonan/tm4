@@ -286,11 +286,12 @@ class H_Layers():
         
 if __name__ == '__main__':
     # self-testing codes
-    a = [[200,300,500], [1,1.2,1.5]]
-    b = [[200,300,500], [1.1,1.3,1.6]]
-    c = [[200,300,600], [1,1.5,1.6]]
-    m = U_Material(a,b)
-    l = H_Layers(m, 100, 10, 5009)
-    l.set_incidence([0,0,1], 450)
+    a = [[200,300,500], [1.6,1.6,1.6]]
+    b = [[200,300,500], [1.1,1.5,1.5]]
+    c = [[200,300,600], [1,1.5,1.5]]
+    m = Uniaxial_Material(a,b)
+    l = H_Layers(m, 180, 6, 180)
+    l.set_incidence([0,0,1], 500)
     l.doit()
+    T1 = l._repeat.T_eff_total
     

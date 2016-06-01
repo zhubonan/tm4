@@ -568,8 +568,10 @@ class HelixFast(Helix):
         P, D = np.zeros((4,4,d), dtype = np.complex), np.zeros((4,4,d), dtype = np.float)
         # We take the order of k, p ,q pair to be: k_e, -k_e, k_o, -k_o
         # Note there is a angle of rotion of pi needed since p = k cross p
-        p1, p2, p3, p4 = p, -p, q, -q # here we can use q as
-        q1, q2, q3, q4 = q*k_e, -q * k_e, -p * k_o, p * k_o # q -> -p is rotation of pi/2
+        r = mfc.rotZ(np.pi/2)
+        p1, p2, p3, p4 = p, -p, q, -q  # The sign of polarisation vectors are arbitary
+        # For q vectors need to put minus sign due to negative kz
+        q1, q2, q3, q4 = q*k_e, q * k_e, r.dot(q) * k_o, r.dot(q) * k_o # q -> -p is rotation of pi/2
         # Assign values to the D matrices        
         D[:3:2,: ,:] = np.array([p1[:2], p2[:2], p3[:2], p4[:2]]).swapaxes(0,1)
         D[1:4:2] =  np.array([q1[:2], q2[:2], q3[:2], q4[:2]]).swapaxes(0,1)
@@ -600,9 +602,10 @@ class HelixFast(Helix):
         # .dot sytex
         T = np.identity(4, dtype = np.complex)
         for i in range(self.phyParas['d']):
-            T = T.dot(D[i].dot(P[i]))
+            T = T.dot(D[i]).dot(P[i])
             T = T.dot(np.linalg.inv(D[i]))
-        return T
+        self.T_eff = T #For debug
+        return Tr0.dot(T.dot(np.linalg.inv(TrEnd)))
         # Change basis to be compatible with the rest of the code
         
 class HeliCoidalStructure(Helix):
@@ -821,10 +824,12 @@ if __name__ == "__main__":
         pl.legend()
         return
     """
-    # Testing the fast calcution routine        
-    h = HelixFast(m = CNC, t = 500, p = 150, d = 5, aor = 0, handness = -1)
+    # Testing the fast calcution routine
+    testMaterial = UniaxialMaterial(1.6,1.5)        
+    h = HelixFast(m = testMaterial, t = 180, p = 180, d = 30, aor = 0, handness = -1)
     h.setOptParas(500, 0)
     P, D = h.getPandD()
     res = h.getPartialTransfer()
-    print(res)
+    h.setOptParas(500,0,0)
+    T = h.T_eff
     

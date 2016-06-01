@@ -466,7 +466,19 @@ class Helix(Structure):
         self.phyParas['t'] = t
         
         
-            
+    def _checkFastCondition(self):
+        """
+        Check the assumption is valid.
+        Requirement:
+    
+        Material is uniaxial, normal incidence        
+        """
+        diag = np.diag(self.phyParas['m'].getTensor(self.optParas['wl']))
+        if not (diag[0] != diag[1] and diag[1] == diag[2]):
+            return False
+        if self.optParas['Kx'] != 0:
+            return False
+        return True       
             
 ###### CORE algorithium : calculating the partial transfer matrix ###### 
     def getAngles(self):
@@ -492,6 +504,11 @@ class Helix(Structure):
         o = self.optParas
         if p['t'] == 0:
             return np.identity(4)
+        # Check we can use the Fast Route
+        
+        if self._checkFastCondition == True:
+            raise RuntimeWarning('Can use the HelixFast for faster calculation')
+        # Normal Calculation routine
         # First we spawn a list of HomogeneousStructures
         sliceT = self.getSliceThickness()
         layerList = [HomogeneousStructure(p['m'],sliceT) for i in range(p['d'])]
@@ -585,10 +602,12 @@ class HelixFast(Helix):
         # We now have P and D ready
         return P, D.transpose((2,0,1))
         
-    def getPartialTransfer(self):
+    def getPartialTransfer(self, q = None):
         """
         Get the partial transfer matrix with basis Ex, Ey, Hx, Hy
         """
+        if self._checkFastCondition() == False:
+            raise RuntimeError('Condition for fast calcution is not satisfied')
         P, D = self.getPandD()
         # Calcuate the transition to basis for partial waves with k_e, -k_e, k_o, -k_o
         D0, DEnd = D[0], D[-1]
@@ -649,7 +668,10 @@ class HeliCoidalStructure(Helix):
         p = self.phyParas
         o = self.optParas
         r = np.remainder(p['t'], p['p'])
-        unit, remainder = Helix(), Helix()
+        if self._checkFastCondition() == True:
+            unit, remainder = HelixFast(), HelixFast()
+        else:
+            unit, remainder = Helix(), Helix()
         # Need to use a copy for the sub helixs
         unit.setPhyParas(p['m'], p['p'], p['p'], p['d'], p['handness'], p['aor'])
         remainder.setPhyParas(p['m'],p['p'], r, p['d'], p['handness'], p['aor'])
@@ -843,5 +865,4 @@ if __name__ == "__main__":
     pl.plot(*s.scanSpectrum(wlRange,1))
     s.setStructure([h1])
     h1.setPhyParas(testMaterial, 180, 1800, 30, aor = 0, handness = -1)
-    pl.figure()
     pl.plot(*s.scanSpectrum(wlRange,1))    

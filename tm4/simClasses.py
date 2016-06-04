@@ -563,7 +563,6 @@ class HelixFast(Helix):
         
         return: (p, q) where p and q are 3xN array of 3x1 vectors
         """
-        
         angles = self.getAngles()
         p = mfc.vectorFromTheta(angles)
         q = mfc.rotZ(np.pi/2).dot(p)
@@ -609,6 +608,7 @@ class HelixFast(Helix):
         if self._checkFastCondition() == False:
             raise RuntimeError('Condition for fast calcution is not satisfied')
         P, D = self.getPandD()
+        DInv = np.linalg.inv(D)
         # Calcuate the transition to basis for partial waves with k_e, -k_e, k_o, -k_o
         D0, DEnd = D[0], D[-1]
         # Rows: D with px, qy, py, qx, Tr need : px, py, qx, qy
@@ -623,13 +623,13 @@ class HelixFast(Helix):
         for i in range(n):
             if i == 0:
                 # Here
-                T = P.dot(np.linalg.inv(D[0]))
+                T = P.dot(DInv[0])
                 continue
             if i == n-1:
                 # Here
                 T = T.dot(D[i]).dot(P)
                 continue
-            T = T.dot(D[i]).dot(P).dot(np.linalg.inv(D[i]))
+            T = T.dot(D[i]).dot(P).dot(DInv[i])
         self.T_eff = T #For debug
         return Tr0.dot(T).dot(np.linalg.inv(TrEnd))
         # Change basis to be compatible with the rest of the code
@@ -823,7 +823,8 @@ air = HomogeneousNondispersiveMaterial(1)
 airHalfSpace = IsotropicHalfSpace(air)
 glass = HomogeneousNondispersiveMaterial(1.55)
 glassHalfSpace = IsotropicHalfSpace(glass)
-CNC = UniaxialMaterial(1.586,1.524) 
+CNC = UniaxialMaterial(1.586,1.524)
+
 if __name__ == "__main__":
 #%%
     # For chekcing if two methods are consistent
@@ -861,8 +862,5 @@ if __name__ == "__main__":
     res = h.getPartialTransfer()
     T = h.T_eff
     from preset import *
-    s.setStructure([h])
-    pl.plot(*s.scanSpectrum(wlRange,1))
-    s.setStructure([h1])
     h1.setPhyParas(testMaterial, 180, 1800, 30, aor = 0, handness = -1)
     pl.plot(*s.scanSpectrum(wlRange,1))    

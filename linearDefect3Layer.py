@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr  4 16:55:52 2016
+Created on Thu Jun  2 17:14:22 2016
 
 @author: Bonan
-"""
 
-"""
 Python script for plotting and simulate 1-D defect structure. e.g. get sepctrum 
 along a line
 """
-import tm4.simClasses as sim
-from tm4.linearDefect import CrossSection
 import matplotlib.pyplot as pl
 import numpy as np
-from time import clock
-import time
-import tm4.matTools as mt
 import matplotlib.gridspec as gridspec
+from time import clock
+import tm4.simClasses as sim
+import tm4.matTools as mt
+from tm4.colourTools import specToRGB
+from tm4.linearDefect import CrossSection
+pi = np.pi
 pl.rcParams['figure.figsize'] = (8,6)
 pl.rcParams['savefig.dpi'] = 100
 #%%
@@ -38,48 +37,42 @@ airSpacer = sim.HomogeneousStructure(air,10)
 glassSpacer = sim.HomogeneousStructure(glass,10)
 s.setStructure([h1])
 wlRange = np.linspace(350,850,50)
-#%% Class def
-class CrossSection2D(CrossSection):
-    """A class represent a 2D CrossSection of the film"""
-    # Define the subclass method of alignHelices       
+#%% Functions
+    
+class CrossSection3L(CrossSection):
+    """A class represent a CrossSection of the film"""
+
+        
     def alignHelices(self, pointIndex):
         """Align the helices"""
-        end = 0
-        for i, helix in enumerate(self.s.structures):
-            if i > 0: helix.phyParas['aor'] = end
-            #print(i,end)
-            # Calculate the end angle, not the intrinstic anlge of rotation need to be added
-            if i == 0:                
-                end = - helix.phyParas['t'] / helix.phyParas['p'] * np.pi + helix.phyParas['aor']\
-                    + pointIndex/len(self.t) * 2 * np.pi
-
-#%% Plotting    
+        s = self.s.structures
+        s[1].phyParas['aor'] = 2 * pi * s[0].phyParas['t'] / \
+        s[0].phyParas['p'] + s[0].phyParas['aor'] + 5 * pi * pointIndex / len(self.t)
+        #s[2].phyParas['aor'] = 2 *pi * s[0].phyParas['t'] / \
+        #s[0].phyParas['p'] + s[0].phyParas['aor']
+  
         
 #%%
 def f1(x):
-    return 2500
+    return 3300 #- .2*x
     
-
-    
-def getSaveName():
-    return "results\\" + time.strftime("%Y%m%d-%H%M%S")
+def f2(x):
+    return 1500 # +.2*x
     
     
 if __name__ == '__main__':
-    from report_Paras import figPath
-    pitchesList1 = [[200,180],[200,180],[200,160],[180,200], [170,200], [160,200]]
-    pitchesList2 = [[210,180],[210,170],[210,160],[180,210], [170,210], [160,210]]
-    pitchesList3 = [[150,180],[180,150]]
-    pitchesList4 = [[180,180]]
-    nop = 20 #Number of points to sample along the defect
-    for pitches in pitchesList4:
+    pitchesList1 = [[180,180,180]]
+    nop = 100 #Number of points to sample along the defect
+    for pitches in pitchesList1:
         wlRange = np.linspace(400,800,200)
         h1 = heli(CNC,pitches[0],1000) #The thickness doesn't matter here
         h2 = heli(CNC, pitches[1] ,1000)
-        tmp = [h1,h2]
+        h3 = heli(CNC, pitches[2], 1000)
+        tmp = [h1,h2,h3]
         #%% Set layer structure
-        c = CrossSection2D(s, 5000,1000,2)
+        c = CrossSection3L(s, 5000,1000,3)
         c.setInterfaceFunction(f1,0)
+        c.setInterfaceFunction(f2,1)
         c.calcPixelConfig(nop)
         c.setLayerTemplate(tmp)
         c.setWlList(wlRange)
@@ -88,15 +81,9 @@ if __name__ == '__main__':
         #c.getResultForPoint(0)
         t = clock()
         # %%Calculation
-        
-        res = c.getSpectrum(wlRange,4)
-        name = getSaveName() + '2Layer'
-        #np.save(name, res)
-        print(clock()-t)
-        
-        #res = np.load('results/20160505-1351142Layer.npy')
-        # %% Plottign
-        #%% Save plot of layer structure
+        res = c.getSpectrum(wlRange, 4)
+        # Performance evaluation
+        print('time elipsed',clock()-t)
         #%%Plotting the structure
         pl.rc('figure', figsize = (3.3,2.8))
         pl.rc('font', size = 8)
@@ -104,18 +91,17 @@ if __name__ == '__main__':
         x = c.p.T
         # Calculate the ys to be plot
         y = np.append(c.h, np.repeat([[c.d]], len(c.p), axis = 0), axis = 1)
-        pl.plot(y, x,'x-')
-        pl.plot(np.zeros(x.shape[0]), x, 'x-')
+        pl.plot(y, x,'.-')
+        pl.plot(np.zeros(x.shape[0]), x, '.-')
         pl.xlim(0, c.d+2000)
         pl.ylim((c.l, 0))
         pl.annotate('', (5000,500), (7000,500),
                     arrowprops=dict(facecolor='black', headwidth = 10, width = 1,headlength = 10))
         #pl.title('Pitch ='+ str([x.phyParas['p'] for x in c.tmp])
-        #+ " incident from right")
+        #+ " Incident from right")
         pl.xlabel('Height from bottom /nm')
         pl.ylabel('Distance /a.u.')
-        pl.tight_layout(pad = 0.2)
-        #pl.savefig(figPath+"LD2S.pdf")
+        #pl.savefig(figPath+"LinearDefect3StructureWithMismatch.pdf")
         #%%Plotting Combined image £££££££
         fig = pl.figure()
         gs = gridspec.GridSpec(1, 2, width_ratios=[10,1])
@@ -134,6 +120,6 @@ if __name__ == '__main__':
         ax2.set_title("RGB")
         ax2.set_xticks([])
         ax2.set_yticks([])
-        pl.tight_layout(pad = 0.2)
-        #pl.savefig(figPath+ "LD2SPEC.pdf")
+        pl.tight_layout(pad = 0)
+        #pl.savefig(figPath+ "LinearDefect3SpectrumWithMismatch.pdf")
         ####

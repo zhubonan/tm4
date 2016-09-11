@@ -14,8 +14,7 @@ For spectral Imaging data
 import matplotlib.pyplot as pl
 import numpy as np
 import scipy as sp
-import matTools as mt
-from report_Paras import figPath
+import tm4.matTools as mt
 pl.rc('figure', figsize = (3.3,2.8))
 pl.rc('font', size = 8)
 #Define file path
@@ -45,7 +44,7 @@ pl.annotate('', (finish[0],finish[1]), (start[0],start[1]), arrowprops = arrow)
 pl.xlabel(r'$\mathsf{\mu m} $', fontsize = 9)
 pl.ylabel(r'$\mathsf{\mu m} $', fontsize = 9)
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingRGB2.pdf')
+#pl.savefig(figPath + 'SpectroImagingRGB2.pdf')
 pl.figure(figsize = (3.3,3))
 pl.imshow(zi.T, aspect='auto', interpolation='none', extent = [stempcf.range[0],stempcf.range[1],dist,0])
 pl.ylabel(r'$\mathsf{\mu m} $', fontsize = 9)
@@ -53,7 +52,7 @@ pl.xlabel('Wavelength nm')
 pl.colorbar()
 #pl.title('Spectrum along the slice')
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingSlice2.pdf')
+#pl.savefig(figPath + 'SpectroImagingSlice2.pdf')
 #%% Plot some stats data
 peakData = stempcf.getPeaks()
 pl.figure(figsize = (3.3,2.8))
@@ -65,10 +64,10 @@ pl.plot([518,590],[0.90,0.55],'k--', linewidth = 2)
 arrow2 = dict(facecolor='black', headwidth = 5, width = 2,headlength = 10)
 pl.annotate('Cut-off', [540,0.8],[560,0.9],arrowprops = arrow2)
 pl.tight_layout(pad = 0.5)
-pl.savefig(figPath + 'SpectroImagingStats2.pdf')
+#pl.savefig(figPath + 'SpectroImagingStats2.pdf')
 #%%Plot an example spectrum
-import simClasses as sim
-from preset import s,wlRange, CNC
+import tm4.simClasses as sim
+from tm4.preset import s,wlRange, CNC
 nBar = 1.55
 dn = 0.025
 m = sim.UniaxialMaterial(nBar + dn, nBar-dn)

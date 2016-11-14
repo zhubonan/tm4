@@ -70,7 +70,7 @@ def specToxyz(spec, SI = 'D65'):
     z = 1 - x - y
     return x, y, z
     
-def specToRGB(spec, SI = 'D65'):
+def specToRGB(spec, SI = 'D65', scale_factor = 1):
     """
     Convert the spectrum(reflectivity) into an RGB value
     
@@ -78,7 +78,8 @@ def specToRGB(spec, SI = 'D65'):
     """
     XYZArray = specToxyz(spec, SI)
     RGBArray = np.dot(_XYZ_to_RGB, XYZArray).clip(0,1)
-    return tuple(RGBArray)
+    RGBArray *= scale_factor
+    return tuple(RGBArray.clip(0,1))
     
 if __name__ == '__main__':
     #Testing of the module

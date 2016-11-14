@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.fftpack import fft, fftfreq
 from scipy.signal import find_peaks_cwt, savgol_filter
 from tm4.colourTools import specToRGB
+from tm4.colourTools import specToXYZ
 import numpy as np
 import matplotlib.pyplot as pl
 import scipy as sp
@@ -191,18 +192,40 @@ class specData():
             gArray = np.squeeze(gArray, 2)
         except: pass
         return gArray
-    def getRGBArray(self):
-        """Return an Nx3 array of RGB values for each point"""
+    def getRGBArray(self, scale = False):
+        """
+        Return an Nx3 array of RGB values for each point
+        scale : if turned on the RGB value is scaled by the sum of XYZ
+        """
         s, n = self.spec.shape
         RGB = np.zeros((n,3))
-        for i in range(n):
-            RGB[i,:] = specToRGB([self.wl, self.spec[:,i]])
+        if scale != True:
+            for i in range(n):
+                RGB[i,:] = specToRGB([self.wl, self.spec[:,i]])
+        else:
+            f = self.getBrightnessArray()
+            for i in range(n):
+                RGB[i,:] = specToRGB([self.wl, self.spec[:,i]], scale_factor = f[i])
         return RGB
         
-    def get2DColouredImage(self, shape = 'auto', show = False):
-        """Show image by converting spectrum to RGB"""
+    def getBrightnessArray(self):
+        """Return an N array with normlised brightness scaling factor"""
+        s, n = self.spec.shape
+        b = np.zeros(n)
+        for i in range(n):
+            b[i] = np.sum(specToXYZ([self.wl, self.spec[:,i]]))
+        b /= np.average(b)
+        return b
+        
+    def get2DColouredImage(self, shape = 'auto', show = False, scale = False):
+        """
+        Show image by converting spectrum to RGB
+        
+        show: if True than plot the array
+        scale: if True than the image is scaled with brightness of each pixel
+        """
         s, n = self.spec.shape # n is the number of spectrum
-        RGB = self.getRGBArray()
+        RGB = self.getRGBArray(scale = scale)
         if shape == 'auto':
             if self.spacialShape != None:
                 shape = self.spacialShape

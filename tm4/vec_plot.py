@@ -27,7 +27,7 @@ stempcf.get2DColouredImage('auto',1)
 scrop = stempcf.crop((525,650))  # Crop, choose only the interested range
 
 class GradientArray:
-    
+    sample_range = 1
     def __init__(self, sdata, start, finish, npoints):
         self.construct_data(sdata)
         self.spec_start = start
@@ -59,14 +59,16 @@ class GradientArray:
         
     def calc_shift(self, row, col):
         """Calcaulte spectral shift of adject points"""
-        store = np.zeros((3,3))
-        for i in range(3):
-            for j in range(3):
-                if i == 1 and j == 1:
-                    store[1,1] = 0
+        n = self.sample_range * 2 + 1
+        r = self.sample_range
+        store = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                if i == r and j == r:
+                    store[r,r] = 0
                     continue
                 store[i,j] = self.compute_shift(self.spec[row, col], 
-                            self.spec[row+i-1, col+j-1])
+                            self.spec[row+i-r, col+j-r])
         return store
                 
     def construct_data(self, sdata):
@@ -75,15 +77,26 @@ class GradientArray:
         self.wlrange = sdata.wl
 
     def calc(self):
-        shift_store = np.zeros((*stempcf.spacialShape, 3 ,3))
-        for row in range(1, stempcf.spacialShape[0] - 1):
-            for col in range(1, stempcf.spacialShape[1] - 1):
+        n = self.sample_range * 2 + 1
+        r = self.sample_range
+        shift_store = np.zeros((*self.spec.shape[:2], n ,n))
+        gradient_row = np.zeros(self.spec.shape[:2])
+        gradient_col = np.zeros(self.spec.shape[:2])
+        for row in range(r, stempcf.spacialShape[0] - r):
+            for col in range(r, stempcf.spacialShape[1] - r):
                 shift_matrix = self.calc_shift(row, col)
                 shift_store[row, col] = shift_matrix
+                grad = np.gradient(shift_matrix, r)
+                gradient_row[row, col] = grad[0][r,r]
+                gradient_col[row, col] = grad[1][r,r]
+        self.shift_array = shift_store
+        self.gradient_arrays = (gradient_row, gradient_col)
         return shift_store
 
 
 #%% Test
-g = GradientArray(stempcf, 550, 650 , 100)
-g.calc_shift(25,25)
+g = GradientArray(stempcf, 525, 600 , 100)
+g.sample_range = 1
+tmp = g.calc_shift(25,25)
+res = np.gradient(tmp)
 g.calc()

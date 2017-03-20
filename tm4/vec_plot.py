@@ -6,25 +6,8 @@ Trys to detect blue/red shift
 @author: bonan
 """
 import scipy as sp
-import matplotlib.pyplot as pl
 import numpy as np
 import tm4.matTools as mt
-pl.rc('figure', figsize = (3.3,2.8))
-pl.rc('font', size = 8)
-#Define file path
-scanPath = 'DataFoler/20160427/scanslim.mat'
-# %%Load Data
-test = mt.scanData(scanPath)
-#%% Preview
-stemp = test.getCurrentSpecData(5)
-stemp.cropSelf([450,750])
-stemp.setSpacialShape((51,51)) ## Define the shape of data
-stemp.testFilter(21,2)
-stempcf = stemp.getFilteredSpectrum(21,2)
-stempcf.spec = stempcf.spec #Minus a backgroud
-stempcf.get2DColouredImage('auto',1)
-#%% Try to extract information about blue/red shift
-scrop = stempcf.crop((525,650))  # Crop, choose only the interested range
 
 class GradientArray:
     sample_range = 1
@@ -82,8 +65,8 @@ class GradientArray:
         shift_store = np.zeros((*self.spec.shape[:2], n ,n))
         gradient_row = np.zeros(self.spec.shape[:2])
         gradient_col = np.zeros(self.spec.shape[:2])
-        for row in range(r, stempcf.spacialShape[0] - r):
-            for col in range(r, stempcf.spacialShape[1] - r):
+        for row in range(r, self.spec.shape[0] - r):
+            for col in range(r, self.spec.shape[1] - r):
                 shift_matrix = self.calc_shift(row, col)
                 shift_store[row, col] = shift_matrix
                 grad = np.gradient(shift_matrix, r)
@@ -92,11 +75,3 @@ class GradientArray:
         self.shift_array = shift_store
         self.gradient_arrays = (gradient_row, gradient_col)
         return shift_store
-
-
-#%% Test
-g = GradientArray(stempcf, 525, 600 , 100)
-g.sample_range = 1
-tmp = g.calc_shift(25,25)
-res = np.gradient(tmp)
-g.calc()

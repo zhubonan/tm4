@@ -1,2 +1,0 @@
-This folder is for unused old method. It was written based on Yeh's formulation which is physically equivalent to Berreman's formulation.
-Berreman's method is preferred as it is more precise as all messy calculation are absorbed into matrix exponential calculation which is handled by Scipy Library

@@ -56,12 +56,12 @@ class CrossSection():
         self.t = h2 - h1
         return self.t
 
-    def getSpectrum(self, wlList=None, process=1, align=True):
+    def getSpectrum(self, wlList=None, process=1, align=True, coupling='LL'):
         """
         Calculate the spectrum for each point with given list of wavelengths"""
         if wlList is None:
             wlList = self.wlList
-        calc = partial(self.getResultForPoint, wlList=wlList)
+        calc = partial(self.getResultForPoint, wlList=wlList, coupling=coupling)
         # If we only use one process then no need to use Pool class
         if process == 1:
             result = np.array(list(map(calc, range(len(self.p)))))
@@ -84,7 +84,7 @@ class CrossSection():
         raise NotImplementedError('alignment need to be implement in subclass')
 
     def getResultForPoint(self, pointIndex, wlList=None,
-                          align=True, showProgress=True):
+                          align=True, showProgress=True, coupling='LL'):
         """
         This method is to be called for getting the spectrum for a
         certain point
@@ -97,7 +97,7 @@ class CrossSection():
         if align is True:
             self.alignHelices(pointIndex)
         # print(self.s.getSubStructureInfo(), flush = True)
-        result = self.s.scanSpectrum(wlList, coreNum=1, giveInfo=False)[1]
+        result = self.s.scanSpectrum(wlList, coreNum=1, giveInfo=False, coupling=coupling)[1]
         if showProgress is True:
             print('Calculation of point ' +
                   str(pointIndex + 1) + ' finished', flush=True)

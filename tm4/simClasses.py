@@ -76,7 +76,7 @@ class OpticalProperties:
         Jt^c = C⁻¹ Jt C.
         Jones matrice for circular polarisation is in the form of:
                                          [[r_LL, r_LR],
-                                          [r_LL, r_RR]]
+                                          [r_RL, r_RR]]
         Returns : array of the same shape.
         """
         J = self.J
@@ -476,13 +476,22 @@ class Helix(Structure):
         """
         super(Helix, self).__init__()
         self.phyParas.update(phyParas)
+        self._distort_A = 1.0
 
-    def setPhyParas(self, material, pitch, t, d, handness, aor=0):
-        """Set the physical parameters of the class"""
+    def setPhyParas(self, material, pitch, t, d, handness, aor=0, distort_A=None):
+        """
+        Set the physical parameters of the class
+        
+        :param distort_A: (p_2 / p_3), where p_2 is the pitch in the top 
+          (before this helix), and p_3 is the pitch in the bottom.
+    
+        See also: https://doi.org/10.1103/PhysRevMaterials.3.045601
+        """
         self.phyParas = {'Description': 'Helix', 'd': d,
                          'sliceThickness': t / d, 'p': pitch,
                          't': t,
-                         'm': material, 'aor': aor, 'handness': handness}
+                         'm': material, 'aor': aor, 'handness': handness,
+                         'distort_A': distort_A}
 
     def getInfo(self):
         """Get infomation of the structure"""
@@ -518,7 +527,13 @@ class Helix(Structure):
         These are the physics angles to be rotated"""
         p = self.phyParas
         endAngle = p['t'] / p['p'] * p['handness'] * np.pi
-        return np.linspace(0, endAngle, p['d'], endpoint=False) + p['aor']
+        angles = np.linspace(0, endAngle, p['d'], endpoint=False) + p['aor']
+        
+        distort_A = p.get('distort_A')
+        if distort_A and ((distort_A - 1.0) > 1e-7):
+            angles = np.arctan(np.tan(angles) * distort_A)
+        
+        return angles
 
     def getSliceThickness(self):
         """
@@ -562,6 +577,30 @@ class Helix(Structure):
         return mfc.stackDot(PMatrices)
 
 
+class DistortedHelix(Helix):
+    """
+    A class to represent distorted helix
+    
+    The new phi is computed as:
+        phi_new = atan( tan(phi_old) * A )
+        
+    where A = (p_2 / p_3). p_2 is the pitch in the top (before this helix), 
+    and p_3 is the pitch in the bottom.
+    
+    See also: https://doi.org/10.1103/PhysRevMaterials.3.045601
+    """
+    def __init__(self, *args, **kwargs):
+        """Instantiate a DistortedHelix object"""
+        super(DistortedHelix, self).__init__(*args, **kwargs)
+        self._distort_A = 1.0
+        
+
+    def getAngles(self):
+        """Get the angle with distortion"""
+        orig_angles = super(DistortedHelix, self).getAngles()
+        return np.arctan(np.tan(orig_angles) * self._distort_A)
+        
+    
 class HelixCustom(Helix):
     """
     A class that allow custom orientation of each layer in a chiral medium
@@ -693,13 +732,16 @@ class HeliCoidalStructure(Helix):
     sType = 'helix'
     # wl = None #dont specify wavelength initially
 
-    def __init__(self, material, pitch, t, d=30, handness='left', aor=0):
+    def __init__(self, material, pitch, t, d=30, handness='left', aor=0, 
+                 distort_A=None):
         """
         Constructor for HeliCoidalStucture class
 
         t: Total thickness of the structure
 
         d: divisions per pitch/remainder unit
+        
+        distort_A: ratio of distortion, default to None.
         """
         # Set handness of the helix
         if handness == 'left':
@@ -708,8 +750,9 @@ class HeliCoidalStructure(Helix):
             h = 1
         else:
             raise RuntimeError('Handness need to be either left or right')
+            
         Helix.__init__(self)
-        self.setPhyParas(material, pitch, t, d, h, aor=0)
+        self.setPhyParas(material, pitch, t, d, h, aor=0, distort_A=distort_A)
         self.phyParas['sliceThickness'] = pitch / d
 
     def getPartialTransfer(self, q=None, updateEpsilon=True):
@@ -727,13 +770,13 @@ class HeliCoidalStructure(Helix):
         unit.setPhyParas(p['m'], p['p'],
                          p['p'], p['d'],
                          p['handness'],
-                         p['aor'])
+                         p['aor'], distort_A=p.get('distort_A'))
         remainder.setPhyParas(p['m'],
                               p['p'],
                               r,
                               p['d'],
                               p['handness'],
-                              p['aor'])
+                              p['aor'], distort_A=p.get('distort_A'))
         # Copy properties
         unit.optParas, remainder.optParas = o, o
         self.unit, self.remainder = unit, remainder
@@ -849,6 +892,11 @@ class OptSystem():
             if coupling == 'LL':
                 # take real part only. Imag has some residual
                 return self.prop.RC[0, 0].real
+            elif coupling == 'LR':
+                # take real part only. Imag has some residual
+                return self.prop.RC[0, 1].real
+            elif coupling == 'RL':
+                return self.prop.RC[1, 0].read
             elif coupling == 'RR':
                 return self.prop.RC[1, 1].real
             elif coupling == 'SS':

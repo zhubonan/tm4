@@ -898,7 +898,7 @@ class OptSystem():
                 # take real part only. Imag has some residual
                 return self.prop.RC[0, 1].real
             elif coupling == 'RL':
-                return self.prop.RC[1, 0].read
+                return self.prop.RC[1, 0].real
             elif coupling == 'RR':
                 return self.prop.RC[1, 1].real
             elif coupling == 'SS':

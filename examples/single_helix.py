@@ -9,12 +9,12 @@ Example script for computing the reflectance spectrum for the following setup:
 ----------------------------------------------
 
     Cellulose nanocrystals with:
-    pitch = 180 nm, refractive indices=1.586, 1.524
+    pitch = 180 nm ("apparent" pitch), refractive indices=1.586, 1.524
     thickness = 1000 nm
 
 ----------------------------------------------
 
-    glass
+    glass - refractive index = 1.55
 
 ==============================================
 

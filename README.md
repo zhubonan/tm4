@@ -28,6 +28,8 @@ Quick start
 
 This will generate a spectrum using default setup
 
+```
 from tm4.preset import *
 pl.plot(*s.scanSpectrum(wlRange,1))
 pl.show()
+```

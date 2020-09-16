@@ -892,6 +892,8 @@ class OptSystem():
             if coupling == 'LL':
                 # take real part only. Imag has some residual
                 return self.prop.RC[0, 0].real
+            elif coupling == 'all': # Unpolarised - assuming 50:500 L and R inputs
+                return self.prop.RC.real.sum() / 2
             elif coupling == 'LR':
                 # take real part only. Imag has some residual
                 return self.prop.RC[0, 1].real
